@@ -1,223 +1,232 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>For Dinda</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
 html,body{
   margin:0;
   padding:0;
-  background:radial-gradient(circle at bottom,#090022,#000);
   overflow:hidden;
+  background:#000;
+  font-family:system-ui, sans-serif;
 }
 canvas{display:block}
+
+/* camera preview */
+#camPreview{
+  position:fixed;
+  right:10px;
+  bottom:10px;
+  width:110px;
+  height:160px;
+  object-fit:cover;
+  border-radius:14px;
+  opacity:0.18;
+  filter:blur(.5px);
+  z-index:5;
+  transition:opacity .8s ease;
+  pointer-events:none;
+}
+
+/* gesture hint */
 #hint{
   position:fixed;
   bottom:14px;
   left:50%;
   transform:translateX(-50%);
-  font-size:11px;
-  letter-spacing:1.5px;
-  color:rgba(255,255,255,0.18);
-  pointer-events:none;
+  font-size:12px;
+  color:rgba(255,255,255,.25);
+  letter-spacing:.3px;
+  z-index:4;
+  user-select:none;
 }
 </style>
 </head>
-<body>
 
+<body>
+<video id="camPreview" autoplay playsinline muted></video>
 <div id="hint">✋ open · ✊ close</div>
 
+<!-- THREE -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.155/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.155/examples/js/loaders/FontLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.155/examples/js/geometries/TextGeometry.js"></script>
+
+<!-- MEDIAPIPE -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 <script>
-/* ---------- SCENE ---------- */
+/* ===================== SCENE ===================== */
 const scene=new THREE.Scene();
-scene.fog=new THREE.FogExp2(0x07001c,0.02);
+scene.fog=new THREE.Fog(0x050010,8,30);
 
-const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,100);
-camera.position.z=18;
+const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.1,100);
+camera.position.z=12;
 
 const renderer=new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(innerWidth,innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
 document.body.appendChild(renderer.domElement);
 
-/* ---------- LIGHT ---------- */
-scene.add(new THREE.AmbientLight(0xb8b5ff,0.6));
-const light=new THREE.PointLight(0x8f7cff,2.8,60);
-light.position.set(0,6,10);
-scene.add(light);
-
-/* ---------- STAR TEXTURE ---------- */
-function starTexture(){
- const c=document.createElement("canvas");
- c.width=c.height=64;
- const x=c.getContext("2d");
- const g=x.createRadialGradient(32,32,0,32,32,32);
- g.addColorStop(0,"rgba(255,255,255,1)");
- g.addColorStop(.4,"rgba(180,190,255,.8)");
- g.addColorStop(1,"rgba(0,0,0,0)");
- x.fillStyle=g;
- x.fillRect(0,0,64,64);
- return new THREE.CanvasTexture(c);
-}
-
-/* ---------- PARTICLES ---------- */
-const COUNT=1500;
-const geo=new THREE.BufferGeometry();
-const pos=new Float32Array(COUNT*3);
-const base=[];
-
-for(let i=0;i<COUNT;i++){
- const r=Math.random()*22;
- const a=Math.random()*Math.PI*2;
- const y=(Math.random()-.5)*10;
- pos[i*3]=Math.cos(a)*r;
- pos[i*3+1]=y;
- pos[i*3+2]=Math.sin(a)*r;
- base.push(pos[i*3],pos[i*3+1],pos[i*3+2]);
-}
-geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
-
-const mat=new THREE.PointsMaterial({
- size:.28,
- map:starTexture(),
- transparent:true,
- blending:THREE.AdditiveBlending,
- depthWrite:false
+window.addEventListener("resize",()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
 });
-const stars=new THREE.Points(geo,mat);
+
+/* ===================== STARS ===================== */
+const starCount=1800;
+const starGeo=new THREE.BufferGeometry();
+const pos=new Float32Array(starCount*3);
+
+for(let i=0;i<starCount;i++){
+  pos[i*3]=(Math.random()-.5)*30;
+  pos[i*3+1]=(Math.random()-.5)*30;
+  pos[i*3+2]=(Math.random()-.5)*30;
+}
+starGeo.setAttribute("position",new THREE.BufferAttribute(pos,3));
+
+const starMat=new THREE.PointsMaterial({
+  color:0xffffff,
+  size:.04,
+  transparent:true,
+  opacity:.9,
+  depthWrite:false
+});
+
+const stars=new THREE.Points(starGeo,starMat);
 scene.add(stars);
 
-/* ---------- TEXT (CANVAS) ---------- */
-function makeText(){
- const c=document.createElement("canvas");
- c.width=1024; c.height=512;
- const ctx=c.getContext("2d");
- ctx.fillStyle="black";
- ctx.fillRect(0,0,c.width,c.height);
+/* ===================== TEXT ===================== */
+let textMesh=null;
+const fontLoader=new FontLoader();
 
- ctx.font="42px Georgia";
- ctx.textAlign="center";
- ctx.fillStyle="rgba(255,255,255,0.9)";
- ctx.shadowColor="#9c8cff";
- ctx.shadowBlur=30;
+function showText(){
+  fontLoader.load(
+    "https://threejs.org/examples/fonts/helvetiker_regular.typeface.json",
+    font=>{
+      const geo=new THREE.TextGeometry(
+        "I am sorry, Dinda.\nFor the times my love\narrived as pain,\nnot care.",
+        {
+          font,
+          size:.6,
+          height:.25,
+          curveSegments:12,
+          bevelEnabled:true,
+          bevelThickness:.03,
+          bevelSize:.02,
+          bevelSegments:5
+        }
+      );
+      geo.center();
 
- const lines=[
- "I'm sorry for hurting you",
- "more than I ever meant to.",
- "",
- "You never deserved that,",
- "Dinda."
- ];
- lines.forEach((l,i)=>{
-  ctx.fillText(l,c.width/2,160+i*52);
- });
+      const mat=new THREE.MeshStandardMaterial({
+        color:0xffd9ff,
+        emissive:0x662266,
+        emissiveIntensity:.9,
+        roughness:.2,
+        metalness:.1
+      });
 
- const tex=new THREE.CanvasTexture(c);
- const mat=new THREE.SpriteMaterial({
-  map:tex,
-  transparent:true
- });
- const s=new THREE.Sprite(mat);
- s.scale.set(12,6,1);
- s.visible=false;
- scene.add(s);
- return s;
-}
-const text=makeText();
+      textMesh=new THREE.Mesh(geo,mat);
+      textMesh.position.z=-1;
+      scene.add(textMesh);
 
-/* ---------- STATES ---------- */
-let state="idle",t=0,lastGesture=0;
-
-function trigger(){
- if(state!=="idle")return;
- state="gather";t=0;
-}
-function reset(){
- state="idle";
- text.visible=false;
+      camPreview.style.opacity=.18; // show preview again
+    }
+  );
 }
 
-/* ---------- ANIMATE ---------- */
+scene.add(new THREE.PointLight(0xff88ff,1.4,20));
+scene.add(new THREE.AmbientLight(0x333344));
+
+/* ===================== ANIMATION STATES ===================== */
+let state="idle";
+let t=0;
+
+function triggerApology(){
+  if(state!=="idle")return;
+  state="gather";
+  camPreview.style.opacity=0; // hide preview
+}
+
+function resetAll(){
+  if(textMesh){
+    scene.remove(textMesh);
+    textMesh=null;
+  }
+  state="idle";
+}
+
+/* ===================== LOOP ===================== */
 function animate(){
- requestAnimationFrame(animate);
- const a=geo.attributes.position.array;
+  requestAnimationFrame(animate);
+  t+=.002;
 
- if(state==="idle"){
   stars.rotation.y+=.0006;
- }
+  stars.rotation.x+=.0003;
 
- if(state==="gather"){
-  t+=.025;
-  for(let i=0;i<a.length;i+=3){
-   a[i]+=(-a[i])*.07;
-   a[i+1]+=(-a[i+1])*.07;
-   a[i+2]+=(-a[i+2])*.07;
-  }
-  if(t>1){state="explode";t=0;}
- }
+  const arr=starGeo.attributes.position.array;
 
- if(state==="explode"){
-  t+=.03;
-  for(let i=0;i<a.length;i+=3){
-   a[i]+=(base[i]-a[i])*.15;
-   a[i+1]+=(base[i+1]-a[i+1])*.15;
-   a[i+2]+=(base[i+2]-a[i+2])*.15;
+  if(state==="gather"){
+    for(let i=0;i<starCount;i++){
+      arr[i*3]*=.96;
+      arr[i*3+1]*=.96;
+      arr[i*3+2]*=.96;
+    }
+    starGeo.attributes.position.needsUpdate=true;
+    if(Math.abs(arr[0])<.02){
+      state="explode";
+    }
   }
-  if(t>1){
-   state="text";
-   text.visible=true;
-  }
- }
 
- geo.attributes.position.needsUpdate=true;
- renderer.render(scene,camera);
+  if(state==="explode"){
+    for(let i=0;i<starCount;i++){
+      arr[i*3]+=(Math.random()-.5)*.6;
+      arr[i*3+1]+=(Math.random()-.5)*.6;
+      arr[i*3+2]+=(Math.random()-.5)*.6;
+    }
+    starGeo.attributes.position.needsUpdate=true;
+    state="text";
+    showText();
+  }
+
+  renderer.render(scene,camera);
 }
 animate();
 
-/* ---------- MEDIAPIPE ---------- */
+/* ===================== MEDIAPIPE ===================== */
+const camPreview=document.getElementById("camPreview");
+
 const hands=new Hands({
- locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
+  locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
 });
 hands.setOptions({
- maxNumHands:1,
- modelComplexity:0,
- minDetectionConfidence:.6,
- minTrackingConfidence:.6
+  maxNumHands:1,
+  modelComplexity:0,
+  minDetectionConfidence:.6,
+  minTrackingConfidence:.6
 });
-hands.onResults(r=>{
- if(!r.multiHandLandmarks)return;
- const l=r.multiHandLandmarks[0];
- const fingers=[
-  l[8].y<l[6].y,
-  l[12].y<l[10].y,
-  l[16].y<l[14].y,
-  l[20].y<l[18].y
- ];
- const open=fingers.filter(Boolean).length>=3;
- const fist=fingers.filter(Boolean).length<=1;
- const now=Date.now();
- if(now-lastGesture<1200)return;
- if(open){trigger();lastGesture=now;}
- if(fist){reset();lastGesture=now;}
-});
-const video=document.createElement("video");
-new Camera(video,{
- onFrame:()=>hands.send({image:video}),
- width:640,height:480
-}).start();
 
-/* ---------- RESIZE ---------- */
-addEventListener("resize",()=>{
- camera.aspect=innerWidth/innerHeight;
- camera.updateProjectionMatrix();
- renderer.setSize(innerWidth,innerHeight);
+hands.onResults(res=>{
+  if(!res.multiHandLandmarks)return;
+  const lm=res.multiHandLandmarks[0];
+  const open=lm[8].y<lm[6].y && lm[12].y<lm[10].y;
+  const fist=lm[8].y>lm[6].y && lm[12].y>lm[10].y;
+
+  if(open)triggerApology();
+  if(fist)resetAll();
 });
+
+new Camera(camPreview,{
+  onFrame:async()=>hands.send({image:camPreview}),
+  width:640,
+  height:480
+}).start();
 </script>
 </body>
 </html>
