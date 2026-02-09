@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>For Dinda</title>
 
 <style>
@@ -11,35 +11,35 @@ html,body{
   padding:0;
   overflow:hidden;
   background:#000;
-  font-family:system-ui, sans-serif;
+  font-family:system-ui,sans-serif;
 }
 canvas{display:block}
 
 /* camera preview */
-#camPreview{
+#cam{
   position:fixed;
-  right:10px;
-  bottom:10px;
+  right:12px;
+  bottom:12px;
   width:110px;
   height:160px;
   object-fit:cover;
   border-radius:14px;
-  opacity:0.18;
-  filter:blur(.5px);
-  z-index:5;
-  transition:opacity .8s ease;
+  opacity:.18;
+  filter:blur(.6px);
   pointer-events:none;
+  transition:opacity .8s ease;
+  z-index:5;
 }
 
 /* gesture hint */
 #hint{
   position:fixed;
-  bottom:14px;
+  bottom:16px;
   left:50%;
   transform:translateX(-50%);
   font-size:12px;
-  color:rgba(255,255,255,.25);
-  letter-spacing:.3px;
+  color:rgba(255,255,255,.22);
+  letter-spacing:.4px;
   z-index:4;
   user-select:none;
 }
@@ -47,22 +47,20 @@ canvas{display:block}
 </head>
 
 <body>
-<video id="camPreview" autoplay playsinline muted></video>
+<video id="cam" autoplay playsinline muted></video>
 <div id="hint">✋ open · ✊ close</div>
 
-<!-- THREE -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.155/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.155/examples/js/loaders/FontLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.155/examples/js/geometries/TextGeometry.js"></script>
 
-<!-- MEDIAPIPE -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 <script>
-/* ===================== SCENE ===================== */
+/* ===== THREE ===== */
 const scene=new THREE.Scene();
-scene.fog=new THREE.Fog(0x050010,8,30);
+scene.fog=new THREE.Fog(0x050010,8,28);
 
 const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.1,100);
 camera.position.z=12;
@@ -72,15 +70,15 @@ renderer.setSize(innerWidth,innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
 document.body.appendChild(renderer.domElement);
 
-window.addEventListener("resize",()=>{
+addEventListener("resize",()=>{
   camera.aspect=innerWidth/innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth,innerHeight);
 });
 
-/* ===================== STARS ===================== */
+/* ===== STARS ===== */
 const starCount=1800;
-const starGeo=new THREE.BufferGeometry();
+const geo=new THREE.BufferGeometry();
 const pos=new Float32Array(starCount*3);
 
 for(let i=0;i<starCount;i++){
@@ -88,9 +86,9 @@ for(let i=0;i<starCount;i++){
   pos[i*3+1]=(Math.random()-.5)*30;
   pos[i*3+2]=(Math.random()-.5)*30;
 }
-starGeo.setAttribute("position",new THREE.BufferAttribute(pos,3));
+geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
 
-const starMat=new THREE.PointsMaterial({
+const mat=new THREE.PointsMaterial({
   color:0xffffff,
   size:.04,
   transparent:true,
@@ -98,21 +96,25 @@ const starMat=new THREE.PointsMaterial({
   depthWrite:false
 });
 
-const stars=new THREE.Points(starGeo,starMat);
+const stars=new THREE.Points(geo,mat);
 scene.add(stars);
 
-/* ===================== TEXT ===================== */
+/* ===== LIGHT ===== */
+scene.add(new THREE.PointLight(0xff88ff,1.4,20));
+scene.add(new THREE.AmbientLight(0x333344));
+
+/* ===== TEXT ===== */
 let textMesh=null;
-const fontLoader=new FontLoader();
 
 function showText(){
-  fontLoader.load(
+  const loader=new THREE.FontLoader();
+  loader.load(
     "https://threejs.org/examples/fonts/helvetiker_regular.typeface.json",
     font=>{
-      const geo=new THREE.TextGeometry(
+      const tg=new THREE.TextGeometry(
         "I am sorry, Dinda.\nFor the times my love\narrived as pain,\nnot care.",
         {
-          font,
+          font:font,
           size:.6,
           height:.25,
           curveSegments:12,
@@ -122,9 +124,9 @@ function showText(){
           bevelSegments:5
         }
       );
-      geo.center();
+      tg.center();
 
-      const mat=new THREE.MeshStandardMaterial({
+      const tm=new THREE.MeshStandardMaterial({
         color:0xffd9ff,
         emissive:0x662266,
         emissiveIntensity:.9,
@@ -132,29 +134,23 @@ function showText(){
         metalness:.1
       });
 
-      textMesh=new THREE.Mesh(geo,mat);
+      textMesh=new THREE.Mesh(tg,tm);
       textMesh.position.z=-1;
       scene.add(textMesh);
 
-      camPreview.style.opacity=.18; // show preview again
+      cam.style.opacity=.18;
     }
   );
 }
 
-scene.add(new THREE.PointLight(0xff88ff,1.4,20));
-scene.add(new THREE.AmbientLight(0x333344));
-
-/* ===================== ANIMATION STATES ===================== */
+/* ===== STATE ===== */
 let state="idle";
-let t=0;
-
-function triggerApology(){
+function trigger(){
   if(state!=="idle")return;
   state="gather";
-  camPreview.style.opacity=0; // hide preview
+  cam.style.opacity=0;
 }
-
-function resetAll(){
+function reset(){
   if(textMesh){
     scene.remove(textMesh);
     textMesh=null;
@@ -162,35 +158,32 @@ function resetAll(){
   state="idle";
 }
 
-/* ===================== LOOP ===================== */
+/* ===== LOOP ===== */
 function animate(){
   requestAnimationFrame(animate);
-  t+=.002;
 
   stars.rotation.y+=.0006;
   stars.rotation.x+=.0003;
 
-  const arr=starGeo.attributes.position.array;
+  const a=geo.attributes.position.array;
 
   if(state==="gather"){
     for(let i=0;i<starCount;i++){
-      arr[i*3]*=.96;
-      arr[i*3+1]*=.96;
-      arr[i*3+2]*=.96;
+      a[i*3]*=.96;
+      a[i*3+1]*=.96;
+      a[i*3+2]*=.96;
     }
-    starGeo.attributes.position.needsUpdate=true;
-    if(Math.abs(arr[0])<.02){
-      state="explode";
-    }
+    geo.attributes.position.needsUpdate=true;
+    if(Math.abs(a[0])<.02) state="explode";
   }
 
   if(state==="explode"){
     for(let i=0;i<starCount;i++){
-      arr[i*3]+=(Math.random()-.5)*.6;
-      arr[i*3+1]+=(Math.random()-.5)*.6;
-      arr[i*3+2]+=(Math.random()-.5)*.6;
+      a[i*3]+=(Math.random()-.5)*.6;
+      a[i*3+1]+=(Math.random()-.5)*.6;
+      a[i*3+2]+=(Math.random()-.5)*.6;
     }
-    starGeo.attributes.position.needsUpdate=true;
+    geo.attributes.position.needsUpdate=true;
     state="text";
     showText();
   }
@@ -199,8 +192,8 @@ function animate(){
 }
 animate();
 
-/* ===================== MEDIAPIPE ===================== */
-const camPreview=document.getElementById("camPreview");
+/* ===== MEDIAPIPE ===== */
+const cam=document.getElementById("cam");
 
 const hands=new Hands({
   locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
@@ -212,18 +205,17 @@ hands.setOptions({
   minTrackingConfidence:.6
 });
 
-hands.onResults(res=>{
-  if(!res.multiHandLandmarks)return;
-  const lm=res.multiHandLandmarks[0];
-  const open=lm[8].y<lm[6].y && lm[12].y<lm[10].y;
-  const fist=lm[8].y>lm[6].y && lm[12].y>lm[10].y;
-
-  if(open)triggerApology();
-  if(fist)resetAll();
+hands.onResults(r=>{
+  if(!r.multiHandLandmarks)return;
+  const l=r.multiHandLandmarks[0];
+  const open=l[8].y<l[6].y && l[12].y<l[10].y;
+  const fist=l[8].y>l[6].y && l[12].y>l[10].y;
+  if(open) trigger();
+  if(fist) reset();
 });
 
-new Camera(camPreview,{
-  onFrame:async()=>hands.send({image:camPreview}),
+new Camera(cam,{
+  onFrame:()=>hands.send({image:cam}),
   width:640,
   height:480
 }).start();
