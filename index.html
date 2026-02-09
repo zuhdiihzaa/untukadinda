@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>For Dinda</title>
 
 <style>
@@ -11,7 +11,6 @@ html,body{
   padding:0;
   overflow:hidden;
   background:black;
-  font-family:serif;
 }
 #video{
   position:fixed;
@@ -23,16 +22,15 @@ html,body{
   border-radius:14px;
   opacity:.85;
   transform:scaleX(-1);
-  z-index:5;
+  z-index:10;
 }
 #hint{
   position:fixed;
-  bottom:12px;
   right:12px;
+  bottom:12px;
   color:#aaa;
   font-size:12px;
   opacity:.6;
-  z-index:5;
 }
 </style>
 </head>
@@ -41,177 +39,201 @@ html,body{
 <video id="video" autoplay muted playsinline></video>
 <div id="hint">✋ change gesture</div>
 
-<!-- THREE -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.155/build/three.min.js"></script>
-
-<!-- MEDIAPIPE -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 <script>
-/* ================== SCENE ================== */
+/* ================= SCENE ================= */
 const scene = new THREE.Scene();
-
-const camera = new THREE.PerspectiveCamera(
-  60,
-  innerWidth/innerHeight,
-  0.1,
-  100
-);
-camera.position.z = 10;
+const camera = new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.1,100);
+camera.position.z = 12;
 
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(innerWidth,innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 document.body.appendChild(renderer.domElement);
 
-/* ================== GALAXY ================== */
-const starCount = 2000;
-const geometry = new THREE.BufferGeometry();
-const positions = new Float32Array(starCount*3);
-const speeds = new Float32Array(starCount);
+/* ============ STAR TEXTURE (ROUND) ============ */
+function createStarTexture(){
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const ctx = c.getContext("2d");
 
-for(let i=0;i<starCount;i++){
-  positions[i*3] = (Math.random()-.5)*40;
-  positions[i*3+1] = (Math.random()-.5)*40;
-  positions[i*3+2] = (Math.random()-.5)*40;
-  speeds[i] = Math.random()*0.003 + 0.001;
+  const g = ctx.createRadialGradient(32,32,2,32,32,32);
+  g.addColorStop(0,"rgba(255,255,255,1)");
+  g.addColorStop(.3,"rgba(180,200,255,.8)");
+  g.addColorStop(1,"rgba(0,0,0,0)");
+
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,64,64);
+  return new THREE.CanvasTexture(c);
 }
 
-geometry.setAttribute(
-  "position",
-  new THREE.BufferAttribute(positions,3)
-);
+/* ================= GALAXY ================= */
+const COUNT = 1800;
+const geo = new THREE.BufferGeometry();
+const pos = new Float32Array(COUNT*3);
+const base = new Float32Array(COUNT*3);
+const vel = new Float32Array(COUNT*3);
 
-const material = new THREE.PointsMaterial({
-  color:0x88aaff,
-  size:0.08,
+for(let i=0;i<COUNT;i++){
+  const x=(Math.random()-.5)*40;
+  const y=(Math.random()-.5)*40;
+  const z=(Math.random()-.5)*40;
+  pos.set([x,y,z],i*3);
+  base.set([x,y,z],i*3);
+}
+
+geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
+
+const mat = new THREE.PointsMaterial({
+  size:.25,
+  map:createStarTexture(),
   transparent:true,
-  opacity:.9
+  depthWrite:false,
+  blending:THREE.AdditiveBlending
 });
 
-const stars = new THREE.Points(geometry,material);
+const stars = new THREE.Points(geo,mat);
 scene.add(stars);
 
-/* ================== TEXT SPRITE ================== */
-let textSprite = null;
+/* ================= TEXT SPRITE ================= */
+let textSprite=null;
 
-function createTextSprite(message){
-  const canvas = document.createElement("canvas");
-  canvas.width = 1024;
-  canvas.height = 512;
-  const ctx = canvas.getContext("2d");
+function createText(msg){
+  const c=document.createElement("canvas");
+  c.width=1024; c.height=512;
+  const ctx=c.getContext("2d");
 
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle = "rgba(255,255,255,0.95)";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.font = "64px serif";
+  ctx.clearRect(0,0,c.width,c.height);
+  ctx.textAlign="center";
+  ctx.textBaseline="middle";
+  ctx.font="64px serif";
 
-  const lines = message.split("\n");
+  ctx.shadowColor="rgba(180,200,255,.9)";
+  ctx.shadowBlur=30;
+  ctx.fillStyle="white";
+
+  const lines=msg.split("\n");
   lines.forEach((l,i)=>{
     ctx.fillText(
       l,
-      canvas.width/2,
-      canvas.height/2 + i*72 - (lines.length-1)*36
+      c.width/2,
+      c.height/2 + i*70 - (lines.length-1)*35
     );
   });
 
-  const tex = new THREE.CanvasTexture(canvas);
-  const mat = new THREE.SpriteMaterial({
+  const tex=new THREE.CanvasTexture(c);
+  const mat=new THREE.SpriteMaterial({
     map:tex,
-    transparent:true
+    transparent:true,
+    opacity:0
   });
 
-  const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(14,7,1);
-  sprite.position.set(0,0,0);
-  return sprite;
+  const s=new THREE.Sprite(mat);
+  s.scale.set(15,7,1);
+  return s;
 }
 
-function showText(msg){
+/* ================= TRANSITION ================= */
+let phase="IDLE", t=0;
+
+function explodeAndShow(msg){
+  phase="GATHER";
+  t=0;
   if(textSprite) scene.remove(textSprite);
-  textSprite = createTextSprite(msg);
-  scene.add(textSprite);
+  textSprite=createText(msg);
 }
 
-/* ================== GESTURE TEXT ================== */
-const messages = {
+/* ================= GESTURE ================= */
+const messages={
   fist:
 "I'm sorry, Dinda.\nI loved you,\nbut not gently enough.",
-
   palm:
 "I never meant\nto turn care\ninto wounds.",
-
   peace:
 "If regret\nhad gravity,\nit would\norbit you forever.",
-
   thumb:
 "I'm learning.\nSlowly.\nStill hoping."
 };
 
-/* ================== MEDIAPIPE ================== */
-const video = document.getElementById("video");
+let lastGesture=null;
+const video=document.getElementById("video");
 
-const hands = new Hands({
-  locateFile:file =>
-    `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+const hands=new Hands({
+  locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
 });
+hands.setOptions({maxNumHands:1,minDetectionConfidence:.7,minTrackingConfidence:.7});
 
-hands.setOptions({
-  maxNumHands:1,
-  minDetectionConfidence:.7,
-  minTrackingConfidence:.7
-});
-
-hands.onResults(res=>{
-  if(!res.multiHandLandmarks) return;
-
-  const lm = res.multiHandLandmarks[0];
-  const fingers = [
-    lm[4].y < lm[3].y,
-    lm[8].y < lm[6].y,
-    lm[12].y < lm[10].y,
-    lm[16].y < lm[14].y,
-    lm[20].y < lm[18].y
+hands.onResults(r=>{
+  if(!r.multiHandLandmarks) return;
+  const l=r.multiHandLandmarks[0];
+  const f=[
+    l[4].y<l[3].y,
+    l[8].y<l[6].y,
+    l[12].y<l[10].y,
+    l[16].y<l[14].y,
+    l[20].y<l[18].y
   ];
 
   let g="fist";
-  if(fingers.every(v=>v)) g="palm";
-  else if(fingers[1] && fingers[2] && !fingers[3]) g="peace";
-  else if(fingers[0] && !fingers.slice(1).some(v=>v)) g="thumb";
+  if(f.every(v=>v)) g="palm";
+  else if(f[1]&&f[2]&&!f[3]) g="peace";
+  else if(f[0]&&!f.slice(1).some(v=>v)) g="thumb";
 
-  showText(messages[g]);
+  if(g!==lastGesture){
+    lastGesture=g;
+    explodeAndShow(messages[g]);
+  }
 });
 
-const cam = new Camera(video,{
-  onFrame:async()=>{await hands.send({image:video});},
-  width:320,
-  height:240
-});
-cam.start();
+new Camera(video,{
+  onFrame:async()=>await hands.send({image:video}),
+  width:320,height:240
+}).start();
 
-/* ================== ANIMATE ================== */
+/* ================= ANIMATE ================= */
 function animate(){
   requestAnimationFrame(animate);
+  const p=geo.attributes.position.array;
 
-  const pos = geometry.attributes.position.array;
-  for(let i=0;i<starCount;i++){
-    pos[i*3+2] += speeds[i];
-    if(pos[i*3+2]>20) pos[i*3+2]=-20;
+  if(phase==="IDLE"){
+    for(let i=0;i<COUNT;i++){
+      p[i*3+2]+=0.01;
+      if(p[i*3+2]>20) p[i*3+2]=-20;
+    }
   }
-  geometry.attributes.position.needsUpdate = true;
 
-  stars.rotation.y += 0.0006;
-  stars.rotation.x += 0.0003;
+  if(phase==="GATHER"){
+    t+=0.03;
+    for(let i=0;i<COUNT;i++){
+      p[i*3]*=0.92;
+      p[i*3+1]*=0.92;
+      p[i*3+2]*=0.92;
+    }
+    if(t>1) phase="EXPLODE";
+  }
 
+  if(phase==="EXPLODE"){
+    for(let i=0;i<COUNT;i++){
+      p[i*3]+= (Math.random()-.5)*2;
+      p[i*3+1]+= (Math.random()-.5)*2;
+      p[i*3+2]+= (Math.random()-.5)*2;
+    }
+    textSprite.material.opacity+=0.03;
+    scene.add(textSprite);
+    if(textSprite.material.opacity>=1) phase="IDLE";
+  }
+
+  geo.attributes.position.needsUpdate=true;
+  stars.rotation.y+=0.0006;
   renderer.render(scene,camera);
 }
 animate();
 
-/* ================== RESIZE ================== */
 addEventListener("resize",()=>{
-  camera.aspect = innerWidth/innerHeight;
+  camera.aspect=innerWidth/innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth,innerHeight);
 });
