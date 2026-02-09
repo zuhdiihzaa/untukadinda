@@ -15,7 +15,18 @@ html,body{
   font-family:system-ui;
 }
 canvas{display:block;}
-#video{display:none;}
+#video{
+  position:fixed;
+  left:12px;
+  bottom:12px;
+  width:120px;
+  height:160px;
+  object-fit:cover;
+  border-radius:12px;
+  opacity:.85;
+  transform:scaleX(-1);
+  z-index:5;
+}
 #hint{
   position:fixed;
   bottom:12px;
@@ -25,13 +36,14 @@ canvas{display:block;}
   font-size:12px;
   opacity:.6;
   text-align:center;
+  z-index:6;
 }
 </style>
 
 <!-- THREE CORE -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.155/build/three.min.js"></script>
 
-<!-- THREE EXTRAS (GLOBAL, NOT MODULE) -->
+<!-- THREE EXAMPLES (GLOBAL / NON-MODULE) -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.155/examples/js/loaders/FontLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.155/examples/js/geometries/TextGeometry.js"></script>
 
@@ -41,59 +53,61 @@ canvas{display:block;}
 </head>
 
 <body>
-<video id="video" playsinline></video>
+<video id="video" autoplay playsinline muted></video>
 <div id="hint">✊ ✋ ✌️ 👍 — change the sky</div>
 
 <script>
 /* ===================== SCENE ===================== */
-const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x050014,12,40);
+const scene=new THREE.Scene();
+scene.fog=new THREE.Fog(0x050014,12,40);
 
-const camera = new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,100);
-camera.position.z = 18;
+const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.1,100);
+camera.position.z=18;
 
-const renderer = new THREE.WebGLRenderer({antialias:true,alpha:true});
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
 renderer.setSize(innerWidth,innerHeight);
 renderer.setPixelRatio(Math.min(2,devicePixelRatio));
 document.body.appendChild(renderer.domElement);
 
 /* ===================== LIGHT ===================== */
-scene.add(new THREE.AmbientLight(0x8899ff,.5));
-const glow = new THREE.PointLight(0xaa88ff,1.4,50);
+scene.add(new THREE.AmbientLight(0x8899ff,.55));
+const glow=new THREE.PointLight(0xaa88ff,1.3,50);
 glow.position.set(5,6,12);
 scene.add(glow);
 
 /* ===================== GALAXY ===================== */
-const STAR_COUNT = 850;
-const geo = new THREE.BufferGeometry();
-const pos = new Float32Array(STAR_COUNT*3);
-const base = [];
+const STAR_COUNT=850;
+const geo=new THREE.BufferGeometry();
+const pos=new Float32Array(STAR_COUNT*3);
+const base=[];
 
 for(let i=0;i<STAR_COUNT;i++){
-  const r = Math.random()*18;
-  const t = Math.random()*Math.PI*2;
-  const p = Math.random()*Math.PI;
-  const x = r*Math.sin(p)*Math.cos(t);
-  const y = r*Math.cos(p);
-  const z = r*Math.sin(p)*Math.sin(t);
+  const r=Math.random()*18;
+  const t=Math.random()*Math.PI*2;
+  const p=Math.random()*Math.PI;
+  const x=r*Math.sin(p)*Math.cos(t);
+  const y=r*Math.cos(p);
+  const z=r*Math.sin(p)*Math.sin(t);
   pos.set([x,y,z],i*3);
   base.push({x,y,z});
 }
 geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
 
-const mat = new THREE.PointsMaterial({
-  color:0x88aaff,
-  size:.13,
-  opacity:.85,
-  transparent:true,
-  depthWrite:false
-});
-const stars = new THREE.Points(geo,mat);
+const stars=new THREE.Points(
+  geo,
+  new THREE.PointsMaterial({
+    color:0x88aaff,
+    size:.13,
+    opacity:.85,
+    transparent:true,
+    depthWrite:false
+  })
+);
 scene.add(stars);
 
 /* ===================== TEXT ===================== */
 let textMesh=null;
-const fontLoader = new FontLoader();
+const fontLoader=new THREE.FontLoader();
 
 const messages={
   fist:"I'm sorry, Dinda.\nI let my love\nbecome careless.",
@@ -108,34 +122,32 @@ function spawnText(content){
   fontLoader.load(
     "https://threejs.org/examples/fonts/helvetiker_regular.typeface.json",
     font=>{
-      const g = new THREE.TextGeometry(content,{
+      const g=new THREE.TextGeometry(content,{
         font,
         size:1.15,
         height:.45,
-        curveSegments:8,
         bevelEnabled:true,
         bevelThickness:.05,
-        bevelSize:.03
+        bevelSize:.03,
+        curveSegments:8
       });
       g.center();
-      const m = new THREE.MeshStandardMaterial({
+      const m=new THREE.MeshStandardMaterial({
         color:0xffffff,
         metalness:.35,
         roughness:.25,
         emissive:0x222244
       });
-      textMesh = new THREE.Mesh(g,m);
-      textMesh.position.z = -3;
-      textMesh.scale.set(0.01,0.01,0.01);
+      textMesh=new THREE.Mesh(g,m);
+      textMesh.position.z=-3;
+      textMesh.scale.set(.01,.01,.01);
       scene.add(textMesh);
     }
   );
 }
 
 /* ===================== TRANSITION ===================== */
-let transitioning=false;
-let t=0;
-
+let transitioning=false,t=0;
 function trigger(content){
   transitioning=true;
   t=0;
@@ -143,20 +155,17 @@ function trigger(content){
 }
 
 function animateTransition(){
-  if(!transitioning) return;
+  if(!transitioning)return;
   t+=.03;
-
   for(let i=0;i<STAR_COUNT;i++){
-    pos[i*3] *= .92;
-    pos[i*3+1] *= .92;
-    pos[i*3+2] *= .92;
+    pos[i*3]*=.92;
+    pos[i*3+1]*=.92;
+    pos[i*3+2]*=.92;
   }
-
   if(textMesh){
     const s=Math.min(1,t);
     textMesh.scale.set(s,s,s);
   }
-
   if(t>1){
     transitioning=false;
     base.forEach((b,i)=>{
@@ -170,14 +179,11 @@ function animateTransition(){
 /* ===================== LOOP ===================== */
 function animate(){
   requestAnimationFrame(animate);
-
-  stars.rotation.y+=0.0007;
-  stars.rotation.x+=0.0003;
-
+  stars.rotation.y+=.0007;
+  stars.rotation.x+=.0003;
   for(let i=0;i<STAR_COUNT;i++){
     pos[i*3+1]+=Math.sin(Date.now()*0.0004+i)*0.00025;
   }
-
   animateTransition();
   geo.attributes.position.needsUpdate=true;
   renderer.render(scene,camera);
@@ -186,6 +192,7 @@ animate();
 
 /* ===================== HAND TRACKING ===================== */
 const video=document.getElementById("video");
+
 const hands=new Hands({
   locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
 });
@@ -198,7 +205,7 @@ hands.setOptions({
 
 let last="";
 hands.onResults(r=>{
-  if(!r.multiHandLandmarks.length) return;
+  if(!r.multiHandLandmarks.length)return;
   const l=r.multiHandLandmarks[0];
   const fist=l[8].y>l[6].y&&l[12].y>l[10].y;
   const palm=l[8].y<l[6].y&&l[12].y<l[10].y;
