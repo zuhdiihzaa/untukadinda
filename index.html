@@ -39,7 +39,6 @@ canvas{display:block}
   color:rgba(255,255,255,.22);
   letter-spacing:.4px;
   z-index:4;
-  user-select:none;
 }
 </style>
 </head>
@@ -48,10 +47,12 @@ canvas{display:block}
 <video id="cam" autoplay playsinline muted></video>
 <div id="hint">✋ open · ✊ close</div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.155/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.155/examples/js/loaders/FontLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.155/examples/js/geometries/TextGeometry.js"></script>
+<!-- THREE (LEGACY, STABLE) -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FontLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/TextGeometry.js"></script>
 
+<!-- MEDIAPIPE -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
@@ -75,7 +76,7 @@ addEventListener("resize",()=>{
 });
 
 /* ===== STARS ===== */
-const starCount=1800;
+const starCount=1600;
 const geo=new THREE.BufferGeometry();
 const pos=new Float32Array(starCount*3);
 
@@ -90,8 +91,7 @@ const mat=new THREE.PointsMaterial({
   color:0xffffff,
   size:.04,
   transparent:true,
-  opacity:.9,
-  depthWrite:false
+  opacity:.9
 });
 
 const stars=new THREE.Points(geo,mat);
@@ -103,19 +103,17 @@ scene.add(new THREE.AmbientLight(0x333344));
 
 /* ===== TEXT ===== */
 let textMesh=null;
-
 function showText(){
   const loader=new THREE.FontLoader();
   loader.load(
     "https://threejs.org/examples/fonts/helvetiker_regular.typeface.json",
     font=>{
       const tg=new THREE.TextGeometry(
-        "I am sorry, Dinda.\nFor the times my love\narrived as pain,\nnot care.",
+        "I am sorry, Dinda.\nFor the times my love\narrived as pain.",
         {
           font:font,
           size:.6,
           height:.25,
-          curveSegments:12,
           bevelEnabled:true,
           bevelThickness:.03,
           bevelSize:.02,
@@ -127,15 +125,11 @@ function showText(){
       const tm=new THREE.MeshStandardMaterial({
         color:0xffd9ff,
         emissive:0x662266,
-        emissiveIntensity:.9,
-        roughness:.2,
-        metalness:.1
+        emissiveIntensity:.8
       });
 
       textMesh=new THREE.Mesh(tg,tm);
-      textMesh.position.z=-1;
       scene.add(textMesh);
-
       cam.style.opacity=.18;
     }
   );
@@ -159,7 +153,6 @@ function reset(){
 /* ===== LOOP ===== */
 function animate(){
   requestAnimationFrame(animate);
-
   stars.rotation.y+=.0006;
   stars.rotation.x+=.0003;
 
@@ -192,30 +185,18 @@ animate();
 
 /* ===== MEDIAPIPE ===== */
 const cam=document.getElementById("cam");
-
 const hands=new Hands({
   locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
 });
-hands.setOptions({
-  maxNumHands:1,
-  modelComplexity:0,
-  minDetectionConfidence:.6,
-  minTrackingConfidence:.6
-});
+hands.setOptions({maxNumHands:1});
 
 hands.onResults(r=>{
   if(!r.multiHandLandmarks) return;
-
   const lm=r.multiHandLandmarks[0];
-  if(!lm || lm.length<13) return;   // ✅ FIX CRASH
+  if(!lm||lm.length<13) return;
 
-  const open =
-    lm[8].y < lm[6].y &&
-    lm[12].y < lm[10].y;
-
-  const fist =
-    lm[8].y > lm[6].y &&
-    lm[12].y > lm[10].y;
+  const open=lm[8].y<lm[6].y && lm[12].y<lm[10].y;
+  const fist=lm[8].y>lm[6].y && lm[12].y>lm[10].y;
 
   if(open) trigger();
   if(fist) reset();
@@ -223,8 +204,7 @@ hands.onResults(r=>{
 
 new Camera(cam,{
   onFrame:()=>hands.send({image:cam}),
-  width:640,
-  height:480
+  width:640,height:480
 }).start();
 </script>
 </body>
