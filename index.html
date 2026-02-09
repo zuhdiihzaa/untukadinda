@@ -47,7 +47,7 @@ canvas{display:block}
 <video id="cam" autoplay playsinline muted></video>
 <div id="hint">✋ open · ✊ close</div>
 
-<!-- THREE (LEGACY, STABLE) -->
+<!-- THREE (STABLE) -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FontLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/TextGeometry.js"></script>
@@ -57,12 +57,12 @@ canvas{display:block}
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 <script>
-/* ===== THREE ===== */
+/* ================= THREE ================= */
 const scene=new THREE.Scene();
 scene.fog=new THREE.Fog(0x050010,8,28);
 
-const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.1,100);
-camera.position.z=12;
+const camera3d=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.1,100);
+camera3d.position.z=12;
 
 const renderer=new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(innerWidth,innerHeight);
@@ -70,13 +70,13 @@ renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
 document.body.appendChild(renderer.domElement);
 
 addEventListener("resize",()=>{
-  camera.aspect=innerWidth/innerHeight;
-  camera.updateProjectionMatrix();
+  camera3d.aspect=innerWidth/innerHeight;
+  camera3d.updateProjectionMatrix();
   renderer.setSize(innerWidth,innerHeight);
 });
 
-/* ===== STARS ===== */
-const starCount=1600;
+/* ================= STARS ================= */
+const starCount=1500;
 const geo=new THREE.BufferGeometry();
 const pos=new Float32Array(starCount*3);
 
@@ -87,21 +87,16 @@ for(let i=0;i<starCount;i++){
 }
 geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
 
-const mat=new THREE.PointsMaterial({
-  color:0xffffff,
-  size:.04,
-  transparent:true,
-  opacity:.9
-});
-
-const stars=new THREE.Points(geo,mat);
+const stars=new THREE.Points(
+  geo,
+  new THREE.PointsMaterial({color:0xffffff,size:.04,transparent:true})
+);
 scene.add(stars);
 
-/* ===== LIGHT ===== */
-scene.add(new THREE.PointLight(0xff88ff,1.4,20));
+scene.add(new THREE.PointLight(0xff88ff,1.2,20));
 scene.add(new THREE.AmbientLight(0x333344));
 
-/* ===== TEXT ===== */
+/* ================= TEXT ================= */
 let textMesh=null;
 function showText(){
   const loader=new THREE.FontLoader();
@@ -110,32 +105,24 @@ function showText(){
     font=>{
       const tg=new THREE.TextGeometry(
         "I am sorry, Dinda.\nFor the times my love\narrived as pain.",
-        {
-          font:font,
-          size:.6,
-          height:.25,
-          bevelEnabled:true,
-          bevelThickness:.03,
-          bevelSize:.02,
-          bevelSegments:5
-        }
+        {font,size:.6,height:.25,bevelEnabled:true}
       );
       tg.center();
-
-      const tm=new THREE.MeshStandardMaterial({
-        color:0xffd9ff,
-        emissive:0x662266,
-        emissiveIntensity:.8
-      });
-
-      textMesh=new THREE.Mesh(tg,tm);
+      textMesh=new THREE.Mesh(
+        tg,
+        new THREE.MeshStandardMaterial({
+          color:0xffd9ff,
+          emissive:0x662266,
+          emissiveIntensity:.8
+        })
+      );
       scene.add(textMesh);
       cam.style.opacity=.18;
     }
   );
 }
 
-/* ===== STATE ===== */
+/* ================= STATE ================= */
 let state="idle";
 function trigger(){
   if(state!=="idle")return;
@@ -143,26 +130,19 @@ function trigger(){
   cam.style.opacity=0;
 }
 function reset(){
-  if(textMesh){
-    scene.remove(textMesh);
-    textMesh=null;
-  }
+  if(textMesh){scene.remove(textMesh);textMesh=null;}
   state="idle";
 }
 
-/* ===== LOOP ===== */
+/* ================= LOOP ================= */
 function animate(){
   requestAnimationFrame(animate);
   stars.rotation.y+=.0006;
-  stars.rotation.x+=.0003;
 
   const a=geo.attributes.position.array;
-
   if(state==="gather"){
     for(let i=0;i<starCount;i++){
-      a[i*3]*=.96;
-      a[i*3+1]*=.96;
-      a[i*3+2]*=.96;
+      a[i*3]*=.96;a[i*3+1]*=.96;a[i*3+2]*=.96;
     }
     geo.attributes.position.needsUpdate=true;
     if(Math.abs(a[0])<.02) state="explode";
@@ -179,16 +159,22 @@ function animate(){
     showText();
   }
 
-  renderer.render(scene,camera);
+  renderer.render(scene,camera3d);
 }
 animate();
 
-/* ===== MEDIAPIPE ===== */
+/* ================= MEDIAPIPE (SAFE) ================= */
 const cam=document.getElementById("cam");
+
 const hands=new Hands({
-  locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
+  locateFile:(f)=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
 });
-hands.setOptions({maxNumHands:1});
+hands.setOptions({
+  maxNumHands:1,
+  modelComplexity:0,
+  minDetectionConfidence:.6,
+  minTrackingConfidence:.6
+});
 
 hands.onResults(r=>{
   if(!r.multiHandLandmarks) return;
@@ -197,15 +183,20 @@ hands.onResults(r=>{
 
   const open=lm[8].y<lm[6].y && lm[12].y<lm[10].y;
   const fist=lm[8].y>lm[6].y && lm[12].y>lm[10].y;
-
   if(open) trigger();
   if(fist) reset();
 });
 
-new Camera(cam,{
-  onFrame:()=>hands.send({image:cam}),
+const camUtil=new Camera(cam,{
+  onFrame:async()=>{
+    if(cam.readyState<2) return;   // 🔥 CRITICAL FIX
+    try{
+      await hands.send({image:cam});
+    }catch(e){}
+  },
   width:640,height:480
-}).start();
+});
+camUtil.start();
 </script>
 </body>
 </html>
