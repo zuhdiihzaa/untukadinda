@@ -15,7 +15,6 @@ html,body{
 }
 canvas{display:block}
 
-/* camera preview */
 #cam{
   position:fixed;
   right:12px;
@@ -31,7 +30,6 @@ canvas{display:block}
   z-index:5;
 }
 
-/* gesture hint */
 #hint{
   position:fixed;
   bottom:16px;
@@ -206,10 +204,19 @@ hands.setOptions({
 });
 
 hands.onResults(r=>{
-  if(!r.multiHandLandmarks)return;
-  const l=r.multiHandLandmarks[0];
-  const open=l[8].y<l[6].y && l[12].y<l[10].y;
-  const fist=l[8].y>l[6].y && l[12].y>l[10].y;
+  if(!r.multiHandLandmarks) return;
+
+  const lm=r.multiHandLandmarks[0];
+  if(!lm || lm.length<13) return;   // ✅ FIX CRASH
+
+  const open =
+    lm[8].y < lm[6].y &&
+    lm[12].y < lm[10].y;
+
+  const fist =
+    lm[8].y > lm[6].y &&
+    lm[12].y > lm[10].y;
+
   if(open) trigger();
   if(fist) reset();
 });
