@@ -2,29 +2,26 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>For Dinda</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
 html,body{
   margin:0;
   padding:0;
-  background:radial-gradient(circle at bottom,#07001c,#000);
+  background:radial-gradient(circle at bottom,#090022,#000);
   overflow:hidden;
-  font-family:Georgia,serif;
 }
 canvas{display:block}
-
 #hint{
   position:fixed;
-  bottom:12px;
+  bottom:14px;
   left:50%;
   transform:translateX(-50%);
   font-size:11px;
-  color:rgba(255,255,255,0.15);
-  letter-spacing:1.2px;
+  letter-spacing:1.5px;
+  color:rgba(255,255,255,0.18);
   pointer-events:none;
-  user-select:none;
 }
 </style>
 </head>
@@ -32,128 +29,127 @@ canvas{display:block}
 
 <div id="hint">✋ open · ✊ close</div>
 
-<!-- THREE -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.155/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.155/examples/js/loaders/FontLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.155/examples/js/geometries/TextGeometry.js"></script>
-
-<!-- MEDIAPIPE -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 <script>
-/* ---------------- SCENE ---------------- */
+/* ---------- SCENE ---------- */
 const scene=new THREE.Scene();
-scene.fog=new THREE.FogExp2(0x07001c,0.018);
+scene.fog=new THREE.FogExp2(0x07001c,0.02);
 
 const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,100);
 camera.position.z=18;
 
-const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+const renderer=new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(innerWidth,innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 document.body.appendChild(renderer.domElement);
 
-/* ---------------- LIGHT ---------------- */
+/* ---------- LIGHT ---------- */
 scene.add(new THREE.AmbientLight(0xb8b5ff,0.6));
-const glow=new THREE.PointLight(0x8f7cff,2.5,50);
-glow.position.set(0,6,10);
-scene.add(glow);
+const light=new THREE.PointLight(0x8f7cff,2.8,60);
+light.position.set(0,6,10);
+scene.add(light);
 
-/* ---------------- STAR TEXTURE ---------------- */
+/* ---------- STAR TEXTURE ---------- */
 function starTexture(){
-  const c=document.createElement("canvas");
-  c.width=c.height=64;
-  const x=c.getContext("2d");
-  const g=x.createRadialGradient(32,32,0,32,32,32);
-  g.addColorStop(0,"rgba(255,255,255,1)");
-  g.addColorStop(.4,"rgba(190,200,255,.8)");
-  g.addColorStop(1,"rgba(0,0,0,0)");
-  x.fillStyle=g;
-  x.fillRect(0,0,64,64);
-  return new THREE.CanvasTexture(c);
+ const c=document.createElement("canvas");
+ c.width=c.height=64;
+ const x=c.getContext("2d");
+ const g=x.createRadialGradient(32,32,0,32,32,32);
+ g.addColorStop(0,"rgba(255,255,255,1)");
+ g.addColorStop(.4,"rgba(180,190,255,.8)");
+ g.addColorStop(1,"rgba(0,0,0,0)");
+ x.fillStyle=g;
+ x.fillRect(0,0,64,64);
+ return new THREE.CanvasTexture(c);
 }
 
-/* ---------------- PARTICLES ---------------- */
+/* ---------- PARTICLES ---------- */
 const COUNT=1500;
 const geo=new THREE.BufferGeometry();
 const pos=new Float32Array(COUNT*3);
 const base=[];
 
 for(let i=0;i<COUNT;i++){
-  const r=Math.random()*22;
-  const a=Math.random()*Math.PI*2;
-  const y=(Math.random()-.5)*10;
-  pos[i*3]=Math.cos(a)*r;
-  pos[i*3+1]=y;
-  pos[i*3+2]=Math.sin(a)*r;
-  base.push(pos[i*3],pos[i*3+1],pos[i*3+2]);
+ const r=Math.random()*22;
+ const a=Math.random()*Math.PI*2;
+ const y=(Math.random()-.5)*10;
+ pos[i*3]=Math.cos(a)*r;
+ pos[i*3+1]=y;
+ pos[i*3+2]=Math.sin(a)*r;
+ base.push(pos[i*3],pos[i*3+1],pos[i*3+2]);
 }
 geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
 
 const mat=new THREE.PointsMaterial({
-  size:.28,
-  map:starTexture(),
-  transparent:true,
-  depthWrite:false,
-  blending:THREE.AdditiveBlending
+ size:.28,
+ map:starTexture(),
+ transparent:true,
+ blending:THREE.AdditiveBlending,
+ depthWrite:false
 });
 const stars=new THREE.Points(geo,mat);
 scene.add(stars);
 
-/* ---------------- TEXT ---------------- */
-let text;
-new FontLoader().load(
- "https://threejs.org/examples/fonts/helvetiker_regular.typeface.json",
- font=>{
-  const g=new THREE.TextGeometry(
-`I'm sorry
-for hurting you
-more than I ever meant to.
+/* ---------- TEXT (CANVAS) ---------- */
+function makeText(){
+ const c=document.createElement("canvas");
+ c.width=1024; c.height=512;
+ const ctx=c.getContext("2d");
+ ctx.fillStyle="black";
+ ctx.fillRect(0,0,c.width,c.height);
 
-You never deserved that,
-Dinda.`,
-  {
-   font,size:.9,height:.35,
-   bevelEnabled:true,
-   bevelThickness:.05,
-   bevelSize:.03
-  });
-  g.center();
-  const m=new THREE.MeshStandardMaterial({
-   color:0xf1ecff,
-   emissive:0x8b7dff,
-   emissiveIntensity:.6,
-   roughness:.25
-  });
-  text=new THREE.Mesh(g,m);
-  text.visible=false;
-  text.scale.set(.8,.8,.8);
-  scene.add(text);
- }
-);
+ ctx.font="42px Georgia";
+ ctx.textAlign="center";
+ ctx.fillStyle="rgba(255,255,255,0.9)";
+ ctx.shadowColor="#9c8cff";
+ ctx.shadowBlur=30;
 
-/* ---------------- STATES ---------------- */
+ const lines=[
+ "I'm sorry for hurting you",
+ "more than I ever meant to.",
+ "",
+ "You never deserved that,",
+ "Dinda."
+ ];
+ lines.forEach((l,i)=>{
+  ctx.fillText(l,c.width/2,160+i*52);
+ });
+
+ const tex=new THREE.CanvasTexture(c);
+ const mat=new THREE.SpriteMaterial({
+  map:tex,
+  transparent:true
+ });
+ const s=new THREE.Sprite(mat);
+ s.scale.set(12,6,1);
+ s.visible=false;
+ scene.add(s);
+ return s;
+}
+const text=makeText();
+
+/* ---------- STATES ---------- */
 let state="idle",t=0,lastGesture=0;
 
 function trigger(){
- if(state!=="idle"||!text)return;
+ if(state!=="idle")return;
  state="gather";t=0;
 }
 function reset(){
- if(state==="idle")return;
- text.visible=false;
  state="idle";
+ text.visible=false;
 }
 
-/* ---------------- ANIMATE ---------------- */
+/* ---------- ANIMATE ---------- */
 function animate(){
  requestAnimationFrame(animate);
  const a=geo.attributes.position.array;
 
  if(state==="idle"){
   stars.rotation.y+=.0006;
-  stars.rotation.x+=.0003;
  }
 
  if(state==="gather"){
@@ -179,16 +175,12 @@ function animate(){
   }
  }
 
- if(state==="text"){
-  text.scale.lerp(new THREE.Vector3(1,1,1),.05);
- }
-
  geo.attributes.position.needsUpdate=true;
  renderer.render(scene,camera);
 }
 animate();
 
-/* ---------------- MEDIAPIPE ---------------- */
+/* ---------- MEDIAPIPE ---------- */
 const hands=new Hands({
  locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
 });
@@ -198,11 +190,9 @@ hands.setOptions({
  minDetectionConfidence:.6,
  minTrackingConfidence:.6
 });
-
 hands.onResults(r=>{
  if(!r.multiHandLandmarks)return;
  const l=r.multiHandLandmarks[0];
-
  const fingers=[
   l[8].y<l[6].y,
   l[12].y<l[10].y,
@@ -211,21 +201,18 @@ hands.onResults(r=>{
  ];
  const open=fingers.filter(Boolean).length>=3;
  const fist=fingers.filter(Boolean).length<=1;
-
  const now=Date.now();
  if(now-lastGesture<1200)return;
-
  if(open){trigger();lastGesture=now;}
  if(fist){reset();lastGesture=now;}
 });
-
 const video=document.createElement("video");
 new Camera(video,{
- onFrame:async()=>hands.send({image:video}),
+ onFrame:()=>hands.send({image:video}),
  width:640,height:480
 }).start();
 
-/* ---------------- RESIZE ---------------- */
+/* ---------- RESIZE ---------- */
 addEventListener("resize",()=>{
  camera.aspect=innerWidth/innerHeight;
  camera.updateProjectionMatrix();
