@@ -1,179 +1,206 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8" />
-<title>Gesture Star Text</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Dear Laily</title>
+
 <style>
 html,body{
   margin:0;
   padding:0;
+  background:#000;
   overflow:hidden;
-  background:black;
-  font-family: 'Poppins', sans-serif;
+  touch-action:none;
+  font-family:Georgia,serif;
 }
-video{
+canvas{position:fixed;inset:0}
+#cameraBox{
   position:fixed;
-  top:0;left:0;
-  width:100%;
-  height:100%;
+  bottom:12px;right:12px;
+  width:110px;aspect-ratio:3/4;
+  border-radius:12px;
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.35);
+  z-index:10;background:#000
+}
+#cameraBox video{
+  width:100%;height:100%;
   object-fit:cover;
-  z-index:1;
-  transition:opacity .6s ease;
-}
-canvas{
-  position:fixed;
-  top:0;left:0;
-  width:100%;
-  height:100%;
-  z-index:2;
+  transform:scaleX(-1);
 }
 #hint{
   position:fixed;
-  bottom:20px;
-  width:100%;
-  text-align:center;
-  color:rgba(255,255,255,.35);
-  font-size:14px;
-  letter-spacing:2px;
-  z-index:3;
+  top:10px;left:50%;
+  transform:translateX(-50%);
+  color:#fff;opacity:.6;
+  font-size:clamp(12px,3vw,15px);
+  z-index:10
 }
 </style>
 </head>
+
 <body>
+<div id="hint">Arahkan tangan ke tengah kamera</div>
+<div id="cameraBox"><video id="video" autoplay playsinline></video></div>
+<canvas id="c"></canvas>
 
-<video id="cam" autoplay playsinline muted></video>
-<canvas id="fx"></canvas>
-<div id="hint">✋ tahan tangan di depan kamera</div>
-
-<!-- MEDIAPIPE -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 <script>
-const video = document.getElementById('cam');
-const canvas = document.getElementById('fx');
-const ctx = canvas.getContext('2d');
+/* ================= CANVAS ================= */
+const canvas=c;
+const ctx=canvas.getContext("2d");
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}
+resize();addEventListener("resize",resize);
 
-let W,H;
-function resize(){
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
-}
-resize();
-window.addEventListener('resize',resize);
+/* ================= STATE ================= */
+let currentState="idle";
+let lastHandTime=Date.now();
 
-// ===== STAR PARTICLES =====
-let stars=[];
-let exploded=false;
-let showText=false;
-let textAlpha=0;
-
-function spawnStars(){
-  stars=[];
-  for(let i=0;i<400;i++){
-    stars.push({
-      x:Math.random()*W,
-      y:Math.random()*H,
-      tx:W/2,
-      ty:H/2,
-      vx:0,vy:0
-    });
-  }
-}
-spawnStars();
-
-function updateStars(){
-  ctx.clearRect(0,0,W,H);
-
-  if(!exploded){
-    stars.forEach(s=>{
-      s.vx+=(s.tx-s.x)*0.002;
-      s.vy+=(s.ty-s.y)*0.002;
-      s.x+=s.vx;
-      s.y+=s.vy;
-
-      ctx.fillStyle='white';
-      ctx.fillRect(s.x,s.y,2,2);
-    });
-  }else{
-    stars.forEach(s=>{
-      s.x+=s.vx;
-      s.y+=s.vy;
-      ctx.fillStyle='white';
-      ctx.fillRect(s.x,s.y,2,2);
-    });
-  }
-
-  if(showText){
-    textAlpha=Math.min(textAlpha+0.02,1);
-    ctx.fillStyle=`rgba(255,255,255,${textAlpha})`;
-    ctx.shadowColor='white';
-    ctx.shadowBlur=25;
-    ctx.font='bold 72px Poppins';
-    ctx.textAlign='center';
-    ctx.fillText('UNTUK ADINDA',W/2,H/2);
-    ctx.shadowBlur=0;
-  }
+/* ================= GALAXY PARTICLES ================= */
+const COUNT=3200;
+const particles=[],base=[];
+for(let i=0;i<COUNT;i++){
+  const p={
+    x:(Math.random()-.5)*canvas.width,
+    y:(Math.random()-.5)*canvas.height,
+    z:Math.random()*900,
+    drift:(Math.random()*0.4+0.1)
+  };
+  particles.push(p);
+  base.push({...p});
 }
 
-// ===== HAND DETECTION =====
-let handStable=0;
-const hands = new Hands({
-  locateFile:(f)=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
-});
+/* ================= TEXT MAP ================= */
+function makeText(text){
+  const off=document.createElement("canvas");
+  const o=off.getContext("2d");
+  off.width=canvas.width;
+  off.height=canvas.height;
+
+  const fs=canvas.width*(canvas.height>canvas.width?0.065:0.045);
+  o.fillStyle="#fff";
+  o.textAlign="center";
+  o.textBaseline="middle";
+  o.font=`600 ${fs}px Georgia`;
+
+  const lines=text.split("\n");
+  const lh=fs*1.45;
+  const sy=off.height/2-(lines.length-1)*lh/2;
+  lines.forEach((l,i)=>o.fillText(l,off.width/2,sy+i*lh));
+
+  const d=o.getImageData(0,0,off.width,off.height).data;
+  const arr=[],step=3;
+  for(let y=0;y<off.height;y+=step){
+    for(let x=0;x<off.width;x+=step){
+      if(d[(y*off.width+x)*4+3]>120){
+        arr.push({x:x-off.width/2,y:y-off.height/2,z:0});
+      }
+    }
+  }
+  return arr;
+}
+
+/* ================= HEART ================= */
+function makeHeart(){
+  const arr=[];
+  for(let t=0;t<Math.PI*2;t+=0.035){
+    const x=16*Math.sin(t)**3;
+    const y=13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t);
+    arr.push({x:x*13,y:-y*13,z:0});
+  }
+  return arr;
+}
+
+/* ================= TARGETS ================= */
+const TARGETS={
+  fist: makeText("from: Raja Iblis"),
+  one: makeText(`Dear Laily Aliyah,
+
+I want to sincerely apologize
+for the situation that happened.`),
+  two: makeText(`I respect your feelings
+and never meant to deceive you.`),
+  three: makeText(`I’m really sorry
+for the misunderstanding.`),
+  four: makeHeart(),
+  five: makeText(`ilysm ly ♥`)
+};
+
+/* ================= ANIMATE ================= */
+let t=0;
+function animate(){
+  t+=0.002;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  /* nebula glow */
+  const g=ctx.createRadialGradient(
+    canvas.width/2,canvas.height/2,0,
+    canvas.width/2,canvas.height/2,canvas.width
+  );
+  g.addColorStop(0,"#120026");
+  g.addColorStop(1,"#000");
+  ctx.fillStyle=g;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.translate(canvas.width/2,canvas.height/2);
+
+  const target=TARGETS[currentState];
+  particles.forEach((p,i)=>{
+    let tx=base[i].x,ty=base[i].y,tz=base[i].z;
+
+    if(target&&i<target.length){
+      tx=target[i].x;
+      ty=target[i].y;
+      tz=0;
+    }else{
+      tx+=Math.sin(t+p.z)*p.drift*10;
+      ty+=Math.cos(t+p.z)*p.drift*10;
+    }
+
+    p.x+=(tx-p.x)*0.07;
+    p.y+=(ty-p.y)*0.07;
+    p.z+=(tz-p.z)*0.07;
+
+    const s=650/(650+p.z);
+    ctx.beginPath();
+    ctx.arc(p.x*s,p.y*s,1.6*s,0,Math.PI*2);
+    ctx.fillStyle=target?"rgba(255,255,255,0.95)":"rgba(180,200,255,0.6)";
+    ctx.fill();
+  });
+
+  ctx.setTransform(1,0,0,1,0,0);
+  requestAnimationFrame(animate);
+}
+animate();
+
+/* ================= MEDIAPIPE ================= */
+const video=document.getElementById("video");
+const hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
 hands.setOptions({
   maxNumHands:1,
   modelComplexity:1,
-  minDetectionConfidence:0.7,
-  minTrackingConfidence:0.7
+  minDetectionConfidence:0.6,
+  minTrackingConfidence:0.6
 });
 
 hands.onResults(res=>{
-  if(res.multiHandLandmarks){
-    handStable++;
-    if(handStable>25 && !exploded){
-      explode();
-    }
-  }else{
-    handStable=0;
-  }
+  if(!res.multiHandLandmarks){currentState="idle";return;}
+  lastHandTime=Date.now();
+  const lm=res.multiHandLandmarks[0];
+  let fingers=0;
+  [8,12,16,20].forEach(t=>{if(lm[t].y<lm[t-2].y) fingers++;});
+  if(lm[4].x<lm[3].x) fingers++;
+  currentState=["fist","one","two","three","four","five"][fingers]||"idle";
 });
 
-const camera = new Camera(video,{
-  onFrame:async()=>{
-    await hands.send({image:video});
-  },
-  width:640,
-  height:480
+const camera=new Camera(video,{
+  onFrame:async()=>hands.send({image:video}),
+  width:360,height:480
 });
 camera.start();
-
-function explode(){
-  exploded=true;
-  document.getElementById('hint').style.opacity=0;
-  video.style.opacity=0;
-
-  stars.forEach(s=>{
-    const a=Math.random()*Math.PI*2;
-    const sp=5+Math.random()*6;
-    s.vx=Math.cos(a)*sp;
-    s.vy=Math.sin(a)*sp;
-  });
-
-  setTimeout(()=>{
-    showText=true;
-    setTimeout(()=>{
-      video.style.opacity=1;
-    },1200);
-  },600);
-}
-
-// ===== LOOP =====
-function loop(){
-  updateStars();
-  requestAnimationFrame(loop);
-}
-loop();
 </script>
 </body>
 </html>
