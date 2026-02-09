@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>Dear Laily</title>
+<title>Dear Adinda</title>
 
 <style>
 html,body{
@@ -49,13 +49,11 @@ canvas{position:fixed;inset:0}
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 <script>
-/* ================= CANVAS ================= */
 const canvas=c;
 const ctx=canvas.getContext("2d");
 function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}
 resize();addEventListener("resize",resize);
 
-/* ================= STATE ================= */
 let currentState="idle";
 let lastHandTime=Date.now();
 
@@ -114,19 +112,23 @@ function makeHeart(){
   return arr;
 }
 
-/* ================= TARGETS ================= */
+/* ================= TARGETS (UPDATED TEXT ONLY) ================= */
 const TARGETS={
-  fist: makeText("from: Raja Iblis"),
-  one: makeText(`Dear Laily Aliyah,
+  fist: makeText("from: someone who keeps failing you"),
+  one: makeText(`Dear Adinda,
 
-I want to sincerely apologize
-for the situation that happened.`),
-  two: makeText(`I respect your feelings
-and never meant to deceive you.`),
-  three: makeText(`I’m really sorry
-for the misunderstanding.`),
+I am truly sorry
+for disappointing you
+again and again.`),
+  two: makeText(`You never deserved
+the pain I caused,
+and I regret it deeply.`),
+  three: makeText(`If apologies could heal wounds,
+I would whisper them
+to you forever.`),
   four: makeHeart(),
-  five: makeText(`ilysm ly ♥`)
+  five: makeText(`I am still hoping
+for your forgiveness ♥`)
 };
 
 /* ================= ANIMATE ================= */
@@ -135,7 +137,6 @@ function animate(){
   t+=0.002;
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  /* nebula glow */
   const g=ctx.createRadialGradient(
     canvas.width/2,canvas.height/2,0,
     canvas.width/2,canvas.height/2,canvas.width
