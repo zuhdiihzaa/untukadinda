@@ -2,8 +2,8 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Dear Adinda</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Dear Laily</title>
 
 <style>
 html,body{
@@ -11,157 +11,163 @@ html,body{
   padding:0;
   background:#000;
   overflow:hidden;
+  touch-action:none;
   font-family:Georgia,serif;
 }
 canvas{position:fixed;inset:0}
-
-#camBox{
+#cameraBox{
   position:fixed;
-  right:12px;
-  bottom:12px;
-  width:120px;
-  aspect-ratio:3/4;
+  bottom:12px;right:12px;
+  width:110px;aspect-ratio:3/4;
   border-radius:12px;
   overflow:hidden;
-  border:1px solid rgba(255,255,255,.4);
-  z-index:10;
+  border:1px solid rgba(255,255,255,.35);
+  z-index:10;background:#000
 }
-#camBox video{
-  width:100%;
-  height:100%;
+#cameraBox video{
+  width:100%;height:100%;
   object-fit:cover;
   transform:scaleX(-1);
 }
-
 #hint{
   position:fixed;
-  top:12px;
-  left:50%;
+  top:10px;left:50%;
   transform:translateX(-50%);
-  color:#fff;
-  opacity:.7;
-  font-size:14px;
-  z-index:10;
+  color:#fff;opacity:.6;
+  font-size:clamp(12px,3vw,15px);
+  z-index:10
 }
 </style>
 </head>
 
 <body>
-
-<div id="hint">Show hand gesture to change the nebula</div>
-<div id="camBox"><video id="video" autoplay playsinline></video></div>
+<div id="hint">Arahkan tangan ke tengah kamera</div>
+<div id="cameraBox"><video id="video" autoplay playsinline></video></div>
 <canvas id="c"></canvas>
 
-<!-- MediaPipe NEW -->
-<script type="module">
-import {
-  HandLandmarker,
-  FilesetResolver
-} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0";
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
-const canvas = document.getElementById("c");
-const ctx = canvas.getContext("2d");
-const video = document.getElementById("video");
+<script>
+/* ================= CANVAS ================= */
+const canvas=c;
+const ctx=canvas.getContext("2d");
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}
+resize();addEventListener("resize",resize);
 
-function resize(){
-  canvas.width = innerWidth;
-  canvas.height = innerHeight;
-}
-resize();
-addEventListener("resize", resize);
+/* ================= STATE ================= */
+let currentState="idle";
+let lastHandTime=Date.now();
 
-/* ===== PARTICLES ===== */
-const COUNT = 2000;
-const particles = [];
-
+/* ================= GALAXY PARTICLES ================= */
+const COUNT=3200;
+const particles=[],base=[];
 for(let i=0;i<COUNT;i++){
-  particles.push({
-    x:(Math.random()-0.5)*canvas.width,
-    y:(Math.random()-0.5)*canvas.height,
-    z:Math.random()*800,
-    seed:Math.random()*1000
-  });
+  const p={
+    x:(Math.random()-.5)*canvas.width,
+    y:(Math.random()-.5)*canvas.height,
+    z:Math.random()*900,
+    drift:(Math.random()*0.4+0.1)
+  };
+  particles.push(p);
+  base.push({...p});
 }
 
-/* ===== TEXT ===== */
+/* ================= TEXT MAP ================= */
 function makeText(text){
   const off=document.createElement("canvas");
   const o=off.getContext("2d");
-
   off.width=canvas.width;
   off.height=canvas.height;
 
-  const fs=canvas.width*0.05;
+  const fs=canvas.width*(canvas.height>canvas.width?0.065:0.045);
   o.fillStyle="#fff";
   o.textAlign="center";
   o.textBaseline="middle";
-  o.font=`700 ${fs}px Georgia`;
+  o.font=`600 ${fs}px Georgia`;
 
-  o.fillText(text, off.width/2, off.height/2);
+  const lines=text.split("\n");
+  const lh=fs*1.45;
+  const sy=off.height/2-(lines.length-1)*lh/2;
+  lines.forEach((l,i)=>o.fillText(l,off.width/2,sy+i*lh));
 
   const d=o.getImageData(0,0,off.width,off.height).data;
-  const arr=[];
-
-  for(let y=0;y<off.height;y+=3){
-    for(let x=0;x<off.width;x+=3){
+  const arr=[],step=3;
+  for(let y=0;y<off.height;y+=step){
+    for(let x=0;x<off.width;x+=step){
       if(d[(y*off.width+x)*4+3]>120){
-        arr.push({x:x-off.width/2,y:y-off.height/2});
+        arr.push({x:x-off.width/2,y:y-off.height/2,z:0});
       }
     }
   }
   return arr;
 }
 
-const STATES = {
-  idle: null,
-  one: makeText("I am sorry"),
-  two: makeText("for hurting you"),
-  three: makeText("again and again"),
-  four: makeText("Please forgive me ♥")
+/* ================= HEART ================= */
+function makeHeart(){
+  const arr=[];
+  for(let t=0;t<Math.PI*2;t+=0.035){
+    const x=16*Math.sin(t)**3;
+    const y=13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t);
+    arr.push({x:x*13,y:-y*13,z:0});
+  }
+  return arr;
+}
+
+/* ================= TARGETS ================= */
+const TARGETS={
+  fist: makeText("From: Someone Who Is Truly Sorry"),
+  one: makeText(`Dear Adinda,
+
+I want to sincerely apologize
+for everything that happened.`),
+  two: makeText(`I never meant to hurt you,
+and I truly regret my mistakes.`),
+  three: makeText(`Please know that I respect you
+and I am deeply sorry.`),
+  four: makeHeart(),
+  five: makeText(`I’m really sorry, Adinda ♥`)
 };
 
-let currentState="idle";
-
-/* ===== ANIMATION ===== */
+/* ================= ANIMATE ================= */
 let t=0;
-
 function animate(){
-  t+=0.01;
-
+  t+=0.002;
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
+  /* nebula glow */
   const g=ctx.createRadialGradient(
     canvas.width/2,canvas.height/2,0,
     canvas.width/2,canvas.height/2,canvas.width
   );
-  g.addColorStop(0,"#1a0033");
+  g.addColorStop(0,"#120026");
   g.addColorStop(1,"#000");
   ctx.fillStyle=g;
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
   ctx.translate(canvas.width/2,canvas.height/2);
 
-  const target=STATES[currentState];
-
+  const target=TARGETS[currentState];
   particles.forEach((p,i)=>{
-    let tx,ty;
+    let tx=base[i].x,ty=base[i].y,tz=base[i].z;
 
-    if(target && i<target.length){
+    if(target&&i<target.length){
       tx=target[i].x;
       ty=target[i].y;
+      tz=0;
     }else{
-      tx=Math.sin(t+p.seed)*200;
-      ty=Math.cos(t+p.seed)*150;
+      tx+=Math.sin(t+p.z)*p.drift*10;
+      ty+=Math.cos(t+p.z)*p.drift*10;
     }
 
-    p.x+=(tx-p.x)*0.06;
-    p.y+=(ty-p.y)*0.06;
+    p.x+=(tx-p.x)*0.07;
+    p.y+=(ty-p.y)*0.07;
+    p.z+=(tz-p.z)*0.07;
 
-    const s=700/(700+p.z);
-
+    const s=650/(650+p.z);
     ctx.beginPath();
-    ctx.fillStyle="white";
-    ctx.arc(p.x*s,p.y*s,2*s,0,Math.PI*2);
+    ctx.arc(p.x*s,p.y*s,1.6*s,0,Math.PI*2);
+    ctx.fillStyle=target?"rgba(255,255,255,0.95)":"rgba(180,200,255,0.6)";
     ctx.fill();
   });
 
@@ -170,46 +176,31 @@ function animate(){
 }
 animate();
 
-/* ===== CAMERA + HAND LANDMARKER ===== */
-const vision = await FilesetResolver.forVisionTasks(
-  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
-);
-
-const handLandmarker = await HandLandmarker.createFromOptions(vision, {
-  baseOptions: {
-    modelAssetPath:
-      "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
-  },
-  numHands: 1
+/* ================= MEDIAPIPE ================= */
+const video=document.getElementById("video");
+const hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+hands.setOptions({
+  maxNumHands:1,
+  modelComplexity:1,
+  minDetectionConfidence:0.6,
+  minTrackingConfidence:0.6
 });
 
-/* start camera */
-navigator.mediaDevices.getUserMedia({ video: true }).then(stream=>{
-  video.srcObject = stream;
-
-  video.onloadeddata = () => detect();
+hands.onResults(res=>{
+  if(!res.multiHandLandmarks){currentState="idle";return;}
+  lastHandTime=Date.now();
+  const lm=res.multiHandLandmarks[0];
+  let fingers=0;
+  [8,12,16,20].forEach(t=>{if(lm[t].y<lm[t-2].y) fingers++;});
+  if(lm[4].x<lm[3].x) fingers++;
+  currentState=["fist","one","two","three","four","five"][fingers]||"idle";
 });
 
-function detect(){
-  const res = handLandmarker.detectForVideo(video, performance.now());
-
-  if(res.landmarks.length === 0){
-    currentState="idle";
-  }else{
-    const lm=res.landmarks[0];
-
-    let fingers=0;
-    [8,12,16,20].forEach(i=>{
-      if(lm[i].y < lm[i-2].y) fingers++;
-    });
-    if(lm[4].x < lm[3].x) fingers++;
-
-    currentState=["idle","one","two","three","four"][fingers] || "idle";
-  }
-
-  requestAnimationFrame(detect);
-}
+const camera=new Camera(video,{
+  onFrame:async()=>hands.send({image:video}),
+  width:360,height:480
+});
+camera.start();
 </script>
-
 </body>
 </html>
