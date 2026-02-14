@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Dear Adinda</title>
 
 <style>
@@ -11,45 +11,30 @@ html,body{
   padding:0;
   background:#000;
   overflow:hidden;
-  touch-action:none;
   font-family:Georgia,serif;
 }
 canvas{position:fixed;inset:0}
-#cameraBox{
-  position:fixed;
-  bottom:12px;right:12px;
-  width:110px;aspect-ratio:3/4;
-  border-radius:12px;
-  overflow:hidden;
-  border:1px solid rgba(255,255,255,.35);
-  z-index:10;background:#000
-}
-#cameraBox video{
-  width:100%;height:100%;
-  object-fit:cover;
-  transform:scaleX(-1);
-}
 #hint{
   position:fixed;
-  top:10px;left:50%;
+  top:12px;left:50%;
   transform:translateX(-50%);
-  color:#fff;opacity:.6;
-  font-size:clamp(12px,3vw,15px);
-  z-index:10
+  color:#fff;opacity:.7;
+  font-size:14px;
+  z-index:10;
 }
 </style>
 </head>
 
 <body>
-<div id="hint">Arahkan tangan ke tengah kamera</div>
-<div id="cameraBox"><video id="video" autoplay playsinline></video></div>
+<div id="hint">Allow camera & show your hand</div>
 <canvas id="c"></canvas>
 
+<!-- MediaPipe -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 <script>
-/* ================= CANVAS FIX ================= */
+/* ================= CANVAS ================= */
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 
@@ -60,58 +45,138 @@ function resize(){
 resize();
 addEventListener("resize", resize);
 
-let currentState="idle";
-
 /* ================= PARTICLES ================= */
-const COUNT=2300;
-const TEXT_PORTION=0.55;
-const particles=[],base=[];
+const COUNT = 1800; // lebih ringan & stabil
+const particles = [];
 
 for(let i=0;i<COUNT;i++){
-  const p={
-    x:(Math.random()-.5)*canvas.width,
-    y:(Math.random()-.5)*canvas.height,
-    z:Math.random()*900,
+  particles.push({
+    x:(Math.random()-0.5)*canvas.width,
+    y:(Math.random()-0.5)*canvas.height,
+    z:Math.random()*800,
     seed:Math.random()*1000
-  };
-  particles.push(p);
-  base.push({...p});
+  });
 }
 
-/* ================= TEXT MAP ================= */
+/* ================= TEXT TARGET ================= */
 function makeText(text){
-  const off=document.createElement("canvas");
-  const o=off.getContext("2d");
-  off.width=canvas.width;
-  off.height=canvas.height;
+  const off = document.createElement("canvas");
+  const o = off.getContext("2d");
 
-  const fs=canvas.width*(canvas.height>canvas.width?0.07:0.05);
-  o.fillStyle="#fff";
-  o.textAlign="center";
-  o.textBaseline="middle";
-  o.font=`700 ${fs}px Georgia`;
+  off.width = canvas.width;
+  off.height = canvas.height;
 
-  const lines=text.split("\n");
-  const lh=fs*1.4;
-  const sy=off.height/2-(lines.length-1)*lh/2;
-  lines.forEach((l,i)=>o.fillText(l,off.width/2,sy+i*lh));
+  const fs = canvas.width * 0.05;
 
-  const d=o.getImageData(0,0,off.width,off.height).data;
-  const arr=[],step=2;
-  for(let y=0;y<off.height;y+=step){
-    for(let x=0;x<off.width;x+=step){
-      if(d[(y*off.width+x)*4+3]>120){
-        arr.push({x:x-off.width/2,y:y-off.height/2,z:0});
+  o.fillStyle = "#fff";
+  o.textAlign = "center";
+  o.textBaseline = "middle";
+  o.font = `700 ${fs}px Georgia`;
+
+  o.fillText(text, off.width/2, off.height/2);
+
+  const d = o.getImageData(0,0,off.width,off.height).data;
+  const arr = [];
+
+  for(let y=0;y<off.height;y+=3){
+    for(let x=0;x<off.width;x+=3){
+      if(d[(y*off.width+x)*4+3] > 120){
+        arr.push({x:x-off.width/2, y:y-off.height/2});
       }
     }
   }
   return arr;
 }
 
-/* ================= HEART ================= */
-function makeHeart(){
-  const arr=[];
-  for(let t=0;t<Math.PI*2;t+=0.03){
-    const x=16*Math.sin(t)**3;
-    const y=13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t);
-    a
+const TEXT = makeText("I am sorry, Adinda");
+let showText = false;
+
+/* ================= ANIMATION ================= */
+let t = 0;
+
+function animate(){
+  t += 0.01;
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  /* nebula background */
+  const g = ctx.createRadialGradient(
+    canvas.width/2,canvas.height/2,0,
+    canvas.width/2,canvas.height/2,canvas.width
+  );
+  g.addColorStop(0,"#1a0033");
+  g.addColorStop(1,"#000");
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.translate(canvas.width/2, canvas.height/2);
+
+  particles.forEach((p,i)=>{
+    let tx, ty;
+
+    if(showText && i < TEXT.length){
+      tx = TEXT[i].x;
+      ty = TEXT[i].y;
+    } else {
+      tx = Math.sin(t + p.seed) * 200;
+      ty = Math.cos(t + p.seed) * 150;
+    }
+
+    p.x += (tx - p.x) * 0.05;
+    p.y += (ty - p.y) * 0.05;
+
+    const s = 700/(700+p.z);
+
+    const glow = ctx.createRadialGradient(p.x*s,p.y*s,0,p.x*s,p.y*s,3*s);
+    glow.addColorStop(0,"rgba(255,255,255,1)");
+    glow.addColorStop(1,"rgba(150,180,255,0)");
+
+    ctx.beginPath();
+    ctx.fillStyle = glow;
+    ctx.arc(p.x*s,p.y*s,3*s,0,Math.PI*2);
+    ctx.fill();
+  });
+
+  ctx.setTransform(1,0,0,1,0,0);
+  requestAnimationFrame(animate);
+}
+animate();
+
+/* ================= MEDIAPIPE SAFE START ================= */
+async function startCamera(){
+  try{
+    const video = document.createElement("video");
+
+    const hands = new Hands({
+      locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
+    });
+
+    hands.setOptions({
+      maxNumHands:1,
+      minDetectionConfidence:0.6,
+      minTrackingConfidence:0.6
+    });
+
+    hands.onResults(res=>{
+      showText = !!res.multiHandLandmarks;
+    });
+
+    const camera = new Camera(video,{
+      onFrame: async () => {
+        await hands.send({image: video});
+      },
+      width:320,
+      height:240
+    });
+
+    camera.start();
+  }catch(e){
+    console.log("Camera failed, animation still running.");
+  }
+}
+
+/* start after page ready */
+window.addEventListener("load", startCamera);
+</script>
+</body>
+</html>
