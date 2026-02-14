@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>Untuk Adinda</title>
+<title>For Adinda</title>
 
 <style>
 html,body{
@@ -15,6 +15,7 @@ html,body{
   font-family:Georgia,serif;
 }
 canvas{position:fixed;inset:0}
+
 #cameraBox{
   position:fixed;
   bottom:12px;right:12px;
@@ -29,6 +30,7 @@ canvas{position:fixed;inset:0}
   object-fit:cover;
   transform:scaleX(-1);
 }
+
 #hint{
   position:fixed;
   top:10px;left:50%;
@@ -52,20 +54,25 @@ canvas{position:fixed;inset:0}
 /* ================= CANVAS ================= */
 const canvas=c;
 const ctx=canvas.getContext("2d");
-function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}
-resize();addEventListener("resize",resize);
+
+function resize(){
+  canvas.width=innerWidth;
+  canvas.height=innerHeight;
+  buildTargets(); // rebuild text agar tidak offset
+}
+addEventListener("resize",resize);
 
 /* ================= STATE ================= */
 let currentState="idle";
-let lastHandTime=Date.now();
 
-/* ================= GALAXY PARTICLES ================= */
+/* ================= PARTICLES ================= */
 const COUNT=3200;
 const particles=[],base=[];
+
 for(let i=0;i<COUNT;i++){
   const p={
-    x:(Math.random()-.5)*canvas.width,
-    y:(Math.random()-.5)*canvas.height,
+    x:(Math.random()-.5)*innerWidth,
+    y:(Math.random()-.5)*innerHeight,
     z:Math.random()*900,
     drift:(Math.random()*0.4+0.1)
   };
@@ -82,11 +89,7 @@ function makeText(text){
   off.height=canvas.height;
 
   const isPortrait = off.height > off.width;
-
-  // ukuran font lebih aman di portrait
-  const fs = isPortrait
-    ? off.width * 0.065
-    : off.width * 0.045;
+  const fs = isPortrait ? off.width*0.065 : off.width*0.045;
 
   o.fillStyle="#fff";
   o.textAlign="center";
@@ -94,19 +97,14 @@ function makeText(text){
   o.font=`600 ${fs}px Georgia`;
 
   const lines=text.split("\n");
-
-  // jarak baris + padding atas bawah
-  const lh = fs * 1.5;
-  const padding = fs * 1.2;
-
-  const totalHeight = (lines.length-1)*lh;
-  const sy = off.height/2 - totalHeight/2;
+  const lh=fs*1.5;
+  const padding=fs*1.2;
+  const total=(lines.length-1)*lh;
+  const sy=off.height/2-total/2;
 
   lines.forEach((l,i)=>{
-    o.fillText(
-      l,
-      off.width/2,
-      Math.min(off.height - padding, Math.max(padding, sy + i*lh))
+    o.fillText(l,off.width/2,
+      Math.min(off.height-padding, Math.max(padding, sy+i*lh))
     );
   });
 
@@ -135,63 +133,84 @@ function makeHeart(){
 }
 
 /* ================= TARGETS ================= */
-const TARGETS={
-  fist: makeText("From: Someone Who Is Truly Sorry"),
-  one: makeText(`Dear Adinda,
+let TARGETS={};
 
-I want to sincerely apologize
+function buildTargets(){
+  TARGETS={
+    fist: makeText("From someone who is truly sorry"),
+    one: makeText(`Dear Adinda,
+
+I sincerely apologize
 for everything that happened.`),
-  two: makeText(`I never meant to hurt you,
+    two: makeText(`I never meant to hurt you,
 and I truly regret my mistakes.`),
-  three: makeText(`Maafin aku ya sayang.`),
-  four: makeHeart(),
-  five: makeText(`I’m really sorry, Adinda ♥`)
-};
+    three: makeText(`Maafin aku ya saayangg ♥y.`),
+    four: makeHeart(),
+    five: makeText(`I'm really sorry, Adinda ♥`)
+  };
+}
 
 /* ================= ANIMATE ================= */
 let t=0;
+
 function animate(){
-  const target = TARGETS[currentState];
+  t+=0.002;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
-particles.forEach((p,i)=>{
-  let tx=base[i].x, ty=base[i].y, tz=base[i].z;
+  const g=ctx.createRadialGradient(
+    canvas.width/2,canvas.height/2,0,
+    canvas.width/2,canvas.height/2,canvas.width
+  );
+  g.addColorStop(0,"#1a0033");
+  g.addColorStop(0.5,"#090018");
+  g.addColorStop(1,"#000");
+  ctx.fillStyle=g;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  if(target && i<target.length){
-    tx=target[i].x;
-    ty=target[i].y;
-    tz=0;
-  }else{
-    // gerakan nebula lebih halus & hidup
-    tx += Math.sin(t*0.6 + p.z) * p.drift * 25;
-    ty += Math.cos(t*0.6 + p.z) * p.drift * 25;
-    tz += Math.sin(t*0.3 + i) * 8;
-  }
+  ctx.translate(canvas.width/2,canvas.height/2);
 
-  p.x += (tx-p.x)*0.06;
-  p.y += (ty-p.y)*0.06;
-  p.z += (tz-p.z)*0.06;
+  const target=TARGETS[currentState];
 
-  const s = 650/(650+p.z);
+  particles.forEach((p,i)=>{
+    let tx=base[i].x,ty=base[i].y,tz=base[i].z;
 
-  ctx.beginPath();
-  ctx.arc(p.x*s, p.y*s, 1.6*s, 0, Math.PI*2);
+    if(target && i<target.length){
+      tx=target[i].x;
+      ty=target[i].y;
+      tz=0;
+    }else{
+      tx+=Math.sin(t*0.6+p.z)*p.drift*25;
+      ty+=Math.cos(t*0.6+p.z)*p.drift*25;
+      tz+=Math.sin(t*0.3+i)*8;
+    }
 
-  // warna romantis (ungu → biru), bukan putih
-  if(target){
-    ctx.fillStyle = `rgba(${180+Math.sin(i)*40}, ${120+Math.cos(i)*40}, 255, 0.95)`;
-  }else{
-    ctx.fillStyle = `rgba(${120+Math.sin(i)*30}, 80, ${200+Math.cos(i)*40}, 0.55)`;
-  }
+    p.x+=(tx-p.x)*0.06;
+    p.y+=(ty-p.y)*0.06;
+    p.z+=(tz-p.z)*0.06;
 
-  ctx.fill();
-});
+    const s=650/(650+p.z);
 
+    ctx.beginPath();
+    ctx.arc(p.x*s,p.y*s,1.6*s,0,Math.PI*2);
+
+    if(target){
+      ctx.fillStyle=`rgba(${180+Math.sin(i)*40},${120+Math.cos(i)*40},255,0.95)`;
+    }else{
+      ctx.fillStyle=`rgba(${120+Math.sin(i)*30},80,${200+Math.cos(i)*40},0.55)`;
+    }
+
+    ctx.fill();
+  });
+
+  ctx.setTransform(1,0,0,1,0,0);
+  requestAnimationFrame(animate);
 }
-animate();
 
 /* ================= MEDIAPIPE ================= */
 const video=document.getElementById("video");
+
 const hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+
 hands.setOptions({
   maxNumHands:1,
   modelComplexity:1,
@@ -200,39 +219,37 @@ hands.setOptions({
 });
 
 hands.onResults(res=>{
-  // jika tidak ada tangan terdeteksi
-  if(!res.multiHandLandmarks || res.multiHandLandmarks.length === 0){
+  if(!res.multiHandLandmarks || res.multiHandLandmarks.length===0){
     currentState="idle";
     return;
   }
 
-  lastHandTime = Date.now();
-  const lm = res.multiHandLandmarks[0];
-
-  // pastikan landmark lengkap
-  if(!lm || lm.length < 21){
+  const lm=res.multiHandLandmarks[0];
+  if(!lm || lm.length<21){
     currentState="idle";
     return;
   }
 
-  let fingers = 0;
+  let fingers=0;
 
-  // jari telunjuk–kelingking
   [8,12,16,20].forEach(t=>{
-    if(lm[t] && lm[t-2] && lm[t].y < lm[t-2].y) fingers++;
+    if(lm[t] && lm[t-2] && lm[t].y<lm[t-2].y) fingers++;
   });
 
-  // ibu jari
-  if(lm[4] && lm[3] && lm[4].x < lm[3].x) fingers++;
+  if(lm[4] && lm[3] && lm[4].x<lm[3].x) fingers++;
 
-  currentState = ["fist","one","two","three","four","five"][fingers] || "idle";
+  currentState=["fist","one","two","three","four","five"][fingers] || "idle";
 });
-
 
 const camera=new Camera(video,{
   onFrame:async()=>hands.send({image:video}),
   width:360,height:480
 });
+
+/* ================= START ================= */
+resize();
+buildTargets();
+animate();
 camera.start();
 </script>
 </body>
