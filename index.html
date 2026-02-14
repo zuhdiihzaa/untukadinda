@@ -77,22 +77,42 @@ for(let i=0;i<COUNT;i++){
 function makeText(text){
   const off=document.createElement("canvas");
   const o=off.getContext("2d");
+
   off.width=canvas.width;
   off.height=canvas.height;
 
-  const fs=canvas.width*(canvas.height>canvas.width?0.065:0.045);
+  const isPortrait = off.height > off.width;
+
+  // ukuran font lebih aman di portrait
+  const fs = isPortrait
+    ? off.width * 0.065
+    : off.width * 0.045;
+
   o.fillStyle="#fff";
   o.textAlign="center";
   o.textBaseline="middle";
   o.font=`600 ${fs}px Georgia`;
 
   const lines=text.split("\n");
-  const lh=fs*1.45;
-  const sy=off.height/2-(lines.length-1)*lh/2;
-  lines.forEach((l,i)=>o.fillText(l,off.width/2,sy+i*lh));
+
+  // jarak baris + padding atas bawah
+  const lh = fs * 1.5;
+  const padding = fs * 1.2;
+
+  const totalHeight = (lines.length-1)*lh;
+  const sy = off.height/2 - totalHeight/2;
+
+  lines.forEach((l,i)=>{
+    o.fillText(
+      l,
+      off.width/2,
+      Math.min(off.height - padding, Math.max(padding, sy + i*lh))
+    );
+  });
 
   const d=o.getImageData(0,0,off.width,off.height).data;
   const arr=[],step=3;
+
   for(let y=0;y<off.height;y+=step){
     for(let x=0;x<off.width;x+=step){
       if(d[(y*off.width+x)*4+3]>120){
@@ -123,8 +143,7 @@ I want to sincerely apologize
 for everything that happened.`),
   two: makeText(`I never meant to hurt you,
 and I truly regret my mistakes.`),
-  three: makeText(`Please know that I respect you
-and I am deeply sorry.`),
+  three: makeText(`Maafin aku ya sayang.`),
   four: makeHeart(),
   five: makeText(`I’m really sorry, Adinda ♥`)
 };
@@ -132,47 +151,41 @@ and I am deeply sorry.`),
 /* ================= ANIMATE ================= */
 let t=0;
 function animate(){
-  t+=0.002;
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const target = TARGETS[currentState];
 
-  /* nebula glow */
-  const g=ctx.createRadialGradient(
-    canvas.width/2,canvas.height/2,0,
-    canvas.width/2,canvas.height/2,canvas.width
-  );
-  g.addColorStop(0,"#120026");
-  g.addColorStop(1,"#000");
-  ctx.fillStyle=g;
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+particles.forEach((p,i)=>{
+  let tx=base[i].x, ty=base[i].y, tz=base[i].z;
 
-  ctx.translate(canvas.width/2,canvas.height/2);
+  if(target && i<target.length){
+    tx=target[i].x;
+    ty=target[i].y;
+    tz=0;
+  }else{
+    // gerakan nebula lebih halus & hidup
+    tx += Math.sin(t*0.6 + p.z) * p.drift * 25;
+    ty += Math.cos(t*0.6 + p.z) * p.drift * 25;
+    tz += Math.sin(t*0.3 + i) * 8;
+  }
 
-  const target=TARGETS[currentState];
-  particles.forEach((p,i)=>{
-    let tx=base[i].x,ty=base[i].y,tz=base[i].z;
+  p.x += (tx-p.x)*0.06;
+  p.y += (ty-p.y)*0.06;
+  p.z += (tz-p.z)*0.06;
 
-    if(target&&i<target.length){
-      tx=target[i].x;
-      ty=target[i].y;
-      tz=0;
-    }else{
-      tx+=Math.sin(t+p.z)*p.drift*10;
-      ty+=Math.cos(t+p.z)*p.drift*10;
-    }
+  const s = 650/(650+p.z);
 
-    p.x+=(tx-p.x)*0.07;
-    p.y+=(ty-p.y)*0.07;
-    p.z+=(tz-p.z)*0.07;
+  ctx.beginPath();
+  ctx.arc(p.x*s, p.y*s, 1.6*s, 0, Math.PI*2);
 
-    const s=650/(650+p.z);
-    ctx.beginPath();
-    ctx.arc(p.x*s,p.y*s,1.6*s,0,Math.PI*2);
-    ctx.fillStyle=target?"rgba(255,255,255,0.95)":"rgba(180,200,255,0.6)";
-    ctx.fill();
-  });
+  // warna romantis (ungu → biru), bukan putih
+  if(target){
+    ctx.fillStyle = `rgba(${180+Math.sin(i)*40}, ${120+Math.cos(i)*40}, 255, 0.95)`;
+  }else{
+    ctx.fillStyle = `rgba(${120+Math.sin(i)*30}, 80, ${200+Math.cos(i)*40}, 0.55)`;
+  }
 
-  ctx.setTransform(1,0,0,1,0,0);
-  requestAnimationFrame(animate);
+  ctx.fill();
+});
+
 }
 animate();
 
