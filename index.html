@@ -187,14 +187,34 @@ hands.setOptions({
 });
 
 hands.onResults(res=>{
-  if(!res.multiHandLandmarks){currentState="idle";return;}
-  lastHandTime=Date.now();
-  const lm=res.multiHandLandmarks[0];
-  let fingers=0;
-  [8,12,16,20].forEach(t=>{if(lm[t].y<lm[t-2].y) fingers++;});
-  if(lm[4].x<lm[3].x) fingers++;
-  currentState=["fist","one","two","three","four","five"][fingers]||"idle";
+  // jika tidak ada tangan terdeteksi
+  if(!res.multiHandLandmarks || res.multiHandLandmarks.length === 0){
+    currentState="idle";
+    return;
+  }
+
+  lastHandTime = Date.now();
+  const lm = res.multiHandLandmarks[0];
+
+  // pastikan landmark lengkap
+  if(!lm || lm.length < 21){
+    currentState="idle";
+    return;
+  }
+
+  let fingers = 0;
+
+  // jari telunjuk–kelingking
+  [8,12,16,20].forEach(t=>{
+    if(lm[t] && lm[t-2] && lm[t].y < lm[t-2].y) fingers++;
+  });
+
+  // ibu jari
+  if(lm[4] && lm[3] && lm[4].x < lm[3].x) fingers++;
+
+  currentState = ["fist","one","two","three","four","five"][fingers] || "idle";
 });
+
 
 const camera=new Camera(video,{
   onFrame:async()=>hands.send({image:video}),
