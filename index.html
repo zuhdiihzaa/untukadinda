@@ -3,200 +3,172 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Galaxy Hand Gesture Love</title>
+<title>Galaxy Love Gesture</title>
 
 <style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: Arial, sans-serif;
+body{
+  margin:0;
+  overflow:hidden;
+  background:black;
+  font-family:Arial, sans-serif;
 }
 
-body {
-  overflow: hidden;
-  background: black;
+/* GALAXY */
+#galaxy{
+  position:fixed;
+  width:100%;
+  height:100%;
+  z-index:-1;
 }
 
-/* CANVAS BACKGROUND */
-#galaxy {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: -1;
+/* PREVIEW CAMERA */
+#preview{
+  position:fixed;
+  bottom:10px;
+  right:10px;
+  width:140px;
+  border-radius:12px;
+  opacity:.7;
 }
 
-/* TEXT CONTAINER */
-.text-wrapper {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  text-align: center;
-  width: 90vw;          /* aman portrait */
-  max-width: 600px;
-  padding: 10px;
+/* TEXT */
+.wrapper{
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  text-align:center;
+  width:90vw;
+  max-width:600px;
 }
 
-/* MAIN TEXT */
-.love-text {
-  font-size: clamp(32px, 8vw, 70px);
-  font-weight: bold;
-  color: #ff4bd1;
-  text-shadow:
-    0 0 10px #ff4bd1,
-    0 0 20px #ff4bd1,
-    0 0 40px #ff0080;
-  opacity: 0;
-  transition: 0.6s ease;
+.text{
+  font-size:clamp(32px,8vw,72px);
+  color:#ff4bd1;
+  text-shadow:0 0 20px #ff4bd1,0 0 40px #ff0080;
+  opacity:0;
+  transition:.5s;
 }
 
-/* 3D HEART */
-.heart {
-  margin: 20px auto;
-  width: 80px;
-  height: 80px;
-  position: relative;
-  transform-style: preserve-3d;
-  transform: rotateY(0deg) scale(0);
-  transition: 0.8s ease;
+/* HEART 3D */
+.heart{
+  width:90px;
+  height:90px;
+  margin:auto;
+  position:relative;
+  transform:scale(0) rotateY(0deg);
+  transform-style:preserve-3d;
+  transition:.7s;
+}
+.heart:before,
+.heart:after{
+  content:"";
+  position:absolute;
+  width:90px;
+  height:140px;
+  background:linear-gradient(135deg,#ff0080,#ff4bd1);
+  border-radius:90px 90px 0 0;
+}
+.heart:before{
+  left:45px;
+  transform:rotate(-45deg);
+  transform-origin:0 100%;
+}
+.heart:after{
+  left:0;
+  transform:rotate(45deg);
+  transform-origin:100% 100%;
 }
 
-.heart::before,
-.heart::after {
-  content: "";
-  position: absolute;
-  width: 80px;
-  height: 120px;
-  background: linear-gradient(135deg, #ff0080, #ff4bd1);
-  border-radius: 80px 80px 0 0;
-  box-shadow: 0 0 25px #ff0080aa;
-}
-
-.heart::before {
-  left: 40px;
-  transform: rotate(-45deg);
-  transform-origin: 0 100%;
-}
-
-.heart::after {
-  left: 0;
-  transform: rotate(45deg);
-  transform-origin: 100% 100%;
-}
-
-/* ACTIVE STATE */
-.show .love-text {
-  opacity: 1;
-}
-
-.show .heart {
-  transform: rotateY(360deg) scale(1);
-}
+/* SHOW */
+.show .text{opacity:1;}
+.show .heart{transform:scale(1) rotateY(360deg);}
 </style>
 </head>
 
 <body>
 
 <canvas id="galaxy"></canvas>
+<video id="preview" autoplay muted playsinline></video>
 
-<div class="text-wrapper" id="ui">
+<div class="wrapper" id="ui">
   <div class="heart"></div>
-  <div class="love-text">I LOVE YOU</div>
+  <div class="text">I LOVE YOU</div>
 </div>
 
-<!-- Mediapipe -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<!-- MEDIAPIPE CDN STABIL -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js"></script>
 
 <script>
-/* ================= GALAXY BACKGROUND ================= */
-const canvas = document.getElementById("galaxy");
-const ctx = canvas.getContext("2d");
+/* ================= GALAXY ================= */
+const canvas=document.getElementById("galaxy");
+const ctx=canvas.getContext("2d");
+let stars=[],w,h;
 
-let stars = [];
-let w, h;
-
-function resize() {
-  w = canvas.width = window.innerWidth;
-  h = canvas.height = window.innerHeight;
+function resize(){
+  w=canvas.width=innerWidth;
+  h=canvas.height=innerHeight;
 }
-window.addEventListener("resize", resize);
+addEventListener("resize",resize);
 resize();
 
-for (let i = 0; i < 250; i++) {
-  stars.push({
-    x: Math.random() * w,
-    y: Math.random() * h,
-    r: Math.random() * 1.5,
-    d: Math.random() * 0.5 + 0.2
-  });
+for(let i=0;i<220;i++){
+  stars.push({x:Math.random()*w,y:Math.random()*h,r:Math.random()*1.5,d:Math.random()*0.6});
 }
 
-function drawGalaxy() {
-  ctx.fillStyle = "rgba(5,0,20,0.25)";
-  ctx.fillRect(0, 0, w, h);
+function draw(){
+  ctx.fillStyle="rgba(5,0,25,0.25)";
+  ctx.fillRect(0,0,w,h);
 
-  stars.forEach(s => {
+  stars.forEach(s=>{
     ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-    ctx.fillStyle = `hsl(${260 + Math.random()*80}, 80%, 60%)`;
+    ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+    ctx.fillStyle=`hsl(${260+Math.random()*80},80%,60%)`;
     ctx.fill();
-
-    s.y += s.d;
-    if (s.y > h) s.y = 0;
+    s.y+=s.d;
+    if(s.y>h)s.y=0;
   });
 
-  requestAnimationFrame(drawGalaxy);
+  requestAnimationFrame(draw);
 }
-drawGalaxy();
+draw();
 
-/* ================= HAND GESTURE ================= */
-const ui = document.getElementById("ui");
+/* ================= HANDS ================= */
+const video=document.getElementById("preview");
+const ui=document.getElementById("ui");
 
-const hands = new Hands({
-  locateFile: file =>
-    `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+const hands=new Hands({
+  locateFile:(f)=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/${f}`
 });
 
 hands.setOptions({
-  maxNumHands: 2,
-  minDetectionConfidence: 0.7,
-  minTrackingConfidence: 0.6
+  maxNumHands:2,
+  modelComplexity:1,
+  minDetectionConfidence:0.7,
+  minTrackingConfidence:0.7
 });
 
-hands.onResults(results => {
-  if (!results.multiHandLandmarks || results.multiHandLandmarks.length < 2) {
+hands.onResults(res=>{
+  if(!res.multiHandLandmarks || res.multiHandLandmarks.length<2){
     ui.classList.remove("show");
     return;
   }
 
-  // Deteksi gesture LOVE sederhana (dua tangan saling mendekat)
-  const left = results.multiHandLandmarks[0][8];   // ujung jari telunjuk
-  const right = results.multiHandLandmarks[1][8];
+  const a=res.multiHandLandmarks[0][8];
+  const b=res.multiHandLandmarks[1][8];
 
-  const dx = left.x - right.x;
-  const dy = left.y - right.y;
-  const dist = Math.sqrt(dx*dx + dy*dy);
+  const dist=Math.hypot(a.x-b.x,a.y-b.y);
 
-  if (dist < 0.15) {
-    ui.classList.add("show");
-  } else {
-    ui.classList.remove("show");
-  }
+  if(dist<0.12) ui.classList.add("show");
+  else ui.classList.remove("show");
 });
 
 /* ================= CAMERA ================= */
-const video = document.createElement("video");
-
-const camera = new Camera(video, {
-  onFrame: async () => {
-    await hands.send({image: video});
-  },
-  width: 640,
-  height: 480
+const camera=new Camera(video,{
+  onFrame:async()=>{await hands.send({image:video});},
+  width:640,
+  height:480
 });
 camera.start();
 </script>
