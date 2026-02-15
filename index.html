@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>For Adinda</title>
+<title>Dear Adinda</title>
 
 <style>
 html,body{
@@ -52,29 +52,29 @@ canvas{position:fixed;inset:0}
 
 <script>
 /* ================= CANVAS ================= */
-const canvas=c;
-const ctx=canvas.getContext("2d");
+const canvas = c;
+const ctx = canvas.getContext("2d");
 
 function resize(){
-  canvas.width=innerWidth;
-  canvas.height=innerHeight;
-  buildTargets();
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
 }
-addEventListener("resize",resize);
+resize();
+addEventListener("resize", resize);
 
 /* ================= STATE ================= */
-let currentState="idle";
+let currentState = "idle";
 
 /* ================= PARTICLES ================= */
-const COUNT=3200;
-const particles=[],base=[];
+const COUNT = 1500; // tetap ringan
+const particles = [];
+const base = [];
 
 for(let i=0;i<COUNT;i++){
-  const p={
-    x:(Math.random()-.5)*innerWidth,
-    y:(Math.random()-.5)*innerHeight,
-    z:Math.random()*900,
-    drift:(Math.random()*0.4+0.1)
+  const p = {
+    x:(Math.random()-.5)*canvas.width,
+    y:(Math.random()-.5)*canvas.height,
+    z:(Math.random()-.5)*600
   };
   particles.push(p);
   base.push({...p});
@@ -82,34 +82,27 @@ for(let i=0;i<COUNT;i++){
 
 /* ================= TEXT MAP ================= */
 function makeText(text){
-  const off=document.createElement("canvas");
-  const o=off.getContext("2d");
+  const off = document.createElement("canvas");
+  const o = off.getContext("2d");
 
-  off.width=canvas.width;
-  off.height=canvas.height;
+  off.width = canvas.width;
+  off.height = canvas.height;
 
-  const isPortrait = off.height > off.width;
-  const fs = isPortrait ? off.width*0.065 : off.width*0.045;
+  const fs = Math.min(canvas.width,canvas.height)*0.06;
 
-  o.fillStyle="#fff";
+  o.fillStyle="#ffffff";
   o.textAlign="center";
   o.textBaseline="middle";
   o.font=`600 ${fs}px Georgia`;
 
   const lines=text.split("\n");
-  const lh=fs*1.5;
-  const padding=fs*1.2;
-  const total=(lines.length-1)*lh;
-  const sy=off.height/2-total/2;
+  const lh=fs*1.4;
+  const sy=off.height/2-(lines.length-1)*lh/2;
 
-  lines.forEach((l,i)=>{
-    o.fillText(l,off.width/2,
-      Math.min(off.height-padding, Math.max(padding, sy+i*lh))
-    );
-  });
+  lines.forEach((l,i)=>o.fillText(l,off.width/2,sy+i*lh));
 
   const d=o.getImageData(0,0,off.width,off.height).data;
-  const arr=[],step=3;
+  const arr=[],step=4;
 
   for(let y=0;y<off.height;y+=step){
     for(let x=0;x<off.width;x+=step){
@@ -121,109 +114,77 @@ function makeText(text){
   return arr;
 }
 
-/* ================= HEART 3D ================= */
-function makeHeart(){
+/* ================= 3D HEART ================= */
+function makeHeart3D(){
   const arr=[];
-  for(let t=0;t<Math.PI*2;t+=0.04){
+  for(let t=0;t<Math.PI*2;t+=0.08){
     const x=16*Math.sin(t)**3;
     const y=13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t);
 
-    for(let z=-40; z<=40; z+=8){
-      arr.push({x:x*12,y:-y*12,z:z});
+    for(let z=-20; z<=20; z+=10){
+      arr.push({x:x*10,y:-y*10,z:z});
     }
   }
   return arr;
 }
 
 /* ================= TARGETS ================= */
-let TARGETS={};
-
-function buildTargets(){
-  TARGETS={
-    fist: makeText("From someone who is truly sorry"),
-    one: makeText(`Dear Adinda,
+const TARGETS={
+  fist: makeText("From Someone Who Is Truly Sorry"),
+  one: makeText(`Dear Adinda,
 
 I sincerely apologize
 for everything that happened.`),
-    two: makeText(`I never meant to hurt you,
+  two: makeText(`I never meant to hurt you,
 and I truly regret my mistakes.`),
-    three: makeText(`Please know that I respect you
-and I am deeply sorry.`),
-    four: makeHeart(),
-    five: makeText(`I'm really sorry, Adinda ♥`)
-  };
-}
+  four: makeHeart3D(),
+  three: makeText(`Maafin aku yaa sayang☻.`),
+  five: makeText(`I'm really sorry, Adinda ♥`)
+};
 
-/* ================= ANIMATE ================= */
+/* ================= ANIMATION ================= */
 let t=0;
 
 function animate(){
-  t+=0.002;
+  t+=0.01;
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
+  /* nebula background */
   const g=ctx.createRadialGradient(
     canvas.width/2,canvas.height/2,0,
     canvas.width/2,canvas.height/2,canvas.width
   );
-  g.addColorStop(0,"#1a0033");
-  g.addColorStop(0.5,"#090018");
+  g.addColorStop(0,"#160030");
   g.addColorStop(1,"#000");
   ctx.fillStyle=g;
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
   ctx.translate(canvas.width/2,canvas.height/2);
 
-  /* ==== background galaxy stars ==== */
-  for(let i=0;i<400;i++){
-    const x=(Math.sin(i*12.9898+t*20)*43758.5453)%canvas.width;
-    const y=(Math.cos(i*78.233+t*10)*12345.6789)%canvas.height;
-
-    ctx.beginPath();
-    ctx.arc(x-canvas.width/2,y-canvas.height/2,0.6,0,Math.PI*2);
-    ctx.fillStyle="rgba(160,140,255,0.25)";
-    ctx.fill();
-  }
-
-  const target=TARGETS[currentState];
+  const target = TARGETS[currentState];
 
   particles.forEach((p,i)=>{
-    let tx=base[i].x,ty=base[i].y,tz=base[i].z;
+    let tx=base[i].x, ty=base[i].y, tz=base[i].z;
 
     if(target && i<target.length){
-
-      /* ==== rotasi 3D khusus heart ==== */
-      if(currentState==="four"){
-        const a=t*1.2;
-        const rx=target[i].x*Math.cos(a)-target[i].z*Math.sin(a);
-        const rz=target[i].x*Math.sin(a)+target[i].z*Math.cos(a);
-        tx=rx; tz=rz; ty=target[i].y;
-      }else{
-        tx=target[i].x; ty=target[i].y; tz=0;
-      }
-
-    }else{
-      tx+=Math.sin(t*0.6+p.z)*p.drift*25;
-      ty+=Math.cos(t*0.6+p.z)*p.drift*25;
-      tz+=Math.sin(t*0.3+i)*8;
+      tx=target[i].x;
+      ty=target[i].y;
+      tz=target[i].z;
     }
 
-    p.x+=(tx-p.x)*0.06;
-    p.y+=(ty-p.y)*0.06;
-    p.z+=(tz-p.z)*0.06;
+    p.x += (tx-p.x)*0.08;
+    p.y += (ty-p.y)*0.08;
+    p.z += (tz-p.z)*0.08;
 
-    const s=650/(650+p.z);
+    const s=500/(500+p.z);
 
     ctx.beginPath();
     ctx.arc(p.x*s,p.y*s,1.6*s,0,Math.PI*2);
 
-    if(target){
-      ctx.fillStyle=`rgba(${200+Math.sin(i)*30},${150+Math.cos(i)*30},255,1)`;
-      ctx.shadowColor="rgba(180,160,255,0.8)";
-      ctx.shadowBlur=10;
-    }else{
-      ctx.fillStyle=`rgba(${120+Math.sin(i)*30},80,${200+Math.cos(i)*40},0.55)`;
-      ctx.shadowBlur=0;
-    }
+    // warna berbeda saat heart
+    ctx.fillStyle = currentState==="four"
+      ? "rgba(255,120,160,0.9)"
+      : "rgba(200,220,255,0.9)";
 
     ctx.fill();
   });
@@ -231,15 +192,18 @@ function animate(){
   ctx.setTransform(1,0,0,1,0,0);
   requestAnimationFrame(animate);
 }
+animate();
 
 /* ================= MEDIAPIPE ================= */
 const video=document.getElementById("video");
 
-const hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+const hands=new Hands({
+  locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
+});
 
 hands.setOptions({
   maxNumHands:1,
-  modelComplexity:1,
+  modelComplexity:0,
   minDetectionConfidence:0.6,
   minTrackingConfidence:0.6
 });
@@ -251,31 +215,25 @@ hands.onResults(res=>{
   }
 
   const lm=res.multiHandLandmarks[0];
-  if(!lm || lm.length<21){
-    currentState="idle";
-    return;
-  }
 
   let fingers=0;
 
   [8,12,16,20].forEach(t=>{
-    if(lm[t] && lm[t-2] && lm[t].y<lm[t-2].y) fingers++;
+    if(lm[t].y < lm[t-2].y) fingers++;
   });
 
-  if(lm[4] && lm[3] && lm[4].x<lm[3].x) fingers++;
+  if(lm[4].x < lm[3].x) fingers++;
 
-  currentState=["fist","one","two","three","four","five"][fingers] || "idle";
+  const map=["fist","one","two","three","four","five"];
+  currentState = map[fingers] || "idle";
 });
 
 const camera=new Camera(video,{
-  onFrame:async()=>hands.send({image:video}),
-  width:360,height:480
+  onFrame:async()=>{await hands.send({image:video});},
+  width:360,
+  height:480
 });
 
-/* ================= START ================= */
-resize();
-buildTargets();
-animate();
 camera.start();
 </script>
 </body>
