@@ -147,7 +147,8 @@ I sincerely apologize
 for everything that happened.`),
     two: makeText(`I never meant to hurt you,
 and I truly regret my mistakes.`),
-    three: makeText(`PMaafin aku ya sayangkuu♥`),
+    three: makeText(`Please know that I respect you
+and I am deeply sorry.`),
     four: makeHeart(),
     five: makeText(`I'm really sorry, Adinda ♥`)
   };
@@ -245,4 +246,37 @@ hands.setOptions({
 
 hands.onResults(res=>{
   if(!res.multiHandLandmarks || res.multiHandLandmarks.length===0){
-    curre
+    currentState="idle";
+    return;
+  }
+
+  const lm=res.multiHandLandmarks[0];
+  if(!lm || lm.length<21){
+    currentState="idle";
+    return;
+  }
+
+  let fingers=0;
+
+  [8,12,16,20].forEach(t=>{
+    if(lm[t] && lm[t-2] && lm[t].y<lm[t-2].y) fingers++;
+  });
+
+  if(lm[4] && lm[3] && lm[4].x<lm[3].x) fingers++;
+
+  currentState=["fist","one","two","three","four","five"][fingers] || "idle";
+});
+
+const camera=new Camera(video,{
+  onFrame:async()=>hands.send({image:video}),
+  width:360,height:480
+});
+
+/* ================= START ================= */
+resize();
+buildTargets();
+animate();
+camera.start();
+</script>
+</body>
+</html>
