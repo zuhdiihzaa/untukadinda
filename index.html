@@ -2,176 +2,247 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Galaxy Love Gesture</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>For Adinda</title>
 
 <style>
-body{
+html,body{
   margin:0;
+  padding:0;
+  background:#000;
   overflow:hidden;
-  background:black;
-  font-family:Arial, sans-serif;
+  touch-action:none;
+  font-family:Georgia,serif;
 }
+canvas{position:fixed;inset:0}
 
-/* GALAXY */
-#galaxy{
+#cameraBox{
   position:fixed;
-  width:100%;
-  height:100%;
-  z-index:-1;
-}
-
-/* PREVIEW CAMERA */
-#preview{
-  position:fixed;
-  bottom:10px;
-  right:10px;
-  width:140px;
+  bottom:12px;right:12px;
+  width:110px;aspect-ratio:3/4;
   border-radius:12px;
-  opacity:.7;
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.35);
+  z-index:10;background:#000
+}
+#cameraBox video{
+  width:100%;height:100%;
+  object-fit:cover;
+  transform:scaleX(-1);
 }
 
-/* TEXT */
-.wrapper{
-  position:absolute;
-  top:50%;
-  left:50%;
-  transform:translate(-50%,-50%);
-  text-align:center;
-  width:90vw;
-  max-width:600px;
+#hint{
+  position:fixed;
+  top:10px;left:50%;
+  transform:translateX(-50%);
+  color:#fff;opacity:.6;
+  font-size:clamp(12px,3vw,15px);
+  z-index:10
 }
-
-.text{
-  font-size:clamp(32px,8vw,72px);
-  color:#ff4bd1;
-  text-shadow:0 0 20px #ff4bd1,0 0 40px #ff0080;
-  opacity:0;
-  transition:.5s;
-}
-
-/* HEART 3D */
-.heart{
-  width:90px;
-  height:90px;
-  margin:auto;
-  position:relative;
-  transform:scale(0) rotateY(0deg);
-  transform-style:preserve-3d;
-  transition:.7s;
-}
-.heart:before,
-.heart:after{
-  content:"";
-  position:absolute;
-  width:90px;
-  height:140px;
-  background:linear-gradient(135deg,#ff0080,#ff4bd1);
-  border-radius:90px 90px 0 0;
-}
-.heart:before{
-  left:45px;
-  transform:rotate(-45deg);
-  transform-origin:0 100%;
-}
-.heart:after{
-  left:0;
-  transform:rotate(45deg);
-  transform-origin:100% 100%;
-}
-
-/* SHOW */
-.show .text{opacity:1;}
-.show .heart{transform:scale(1) rotateY(360deg);}
 </style>
 </head>
 
 <body>
+<div id="hint">Arahkan tangan ke tengah kamera</div>
+<div id="cameraBox"><video id="video" autoplay playsinline></video></div>
+<canvas id="c"></canvas>
 
-<canvas id="galaxy"></canvas>
-<video id="preview" autoplay muted playsinline></video>
-
-<div class="wrapper" id="ui">
-  <div class="heart"></div>
-  <div class="text">I LOVE YOU</div>
-</div>
-
-<!-- MEDIAPIPE CDN STABIL -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/hands.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 <script>
-/* ================= GALAXY ================= */
-const canvas=document.getElementById("galaxy");
+/* ================= CANVAS ================= */
+const canvas=c;
 const ctx=canvas.getContext("2d");
-let stars=[],w,h;
 
 function resize(){
-  w=canvas.width=innerWidth;
-  h=canvas.height=innerHeight;
+  canvas.width=innerWidth;
+  canvas.height=innerHeight;
+  buildTargets();
 }
 addEventListener("resize",resize);
-resize();
 
-for(let i=0;i<220;i++){
-  stars.push({x:Math.random()*w,y:Math.random()*h,r:Math.random()*1.5,d:Math.random()*0.6});
+/* ================= STATE ================= */
+let currentState="idle";
+
+/* ================= PARTICLES ================= */
+const COUNT=3200;
+const particles=[],base=[];
+
+for(let i=0;i<COUNT;i++){
+  const p={
+    x:(Math.random()-.5)*innerWidth,
+    y:(Math.random()-.5)*innerHeight,
+    z:Math.random()*900,
+    drift:(Math.random()*0.4+0.1)
+  };
+  particles.push(p);
+  base.push({...p});
 }
 
-function draw(){
-  ctx.fillStyle="rgba(5,0,25,0.25)";
-  ctx.fillRect(0,0,w,h);
+/* ================= TEXT MAP ================= */
+function makeText(text){
+  const off=document.createElement("canvas");
+  const o=off.getContext("2d");
 
-  stars.forEach(s=>{
-    ctx.beginPath();
-    ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
-    ctx.fillStyle=`hsl(${260+Math.random()*80},80%,60%)`;
-    ctx.fill();
-    s.y+=s.d;
-    if(s.y>h)s.y=0;
+  off.width=canvas.width;
+  off.height=canvas.height;
+
+  const isPortrait = off.height > off.width;
+  const fs = isPortrait ? off.width*0.065 : off.width*0.045;
+
+  o.fillStyle="#fff";
+  o.textAlign="center";
+  o.textBaseline="middle";
+  o.font=`600 ${fs}px Georgia`;
+
+  const lines=text.split("\n");
+  const lh=fs*1.5;
+  const padding=fs*1.2;
+  const total=(lines.length-1)*lh;
+  const sy=off.height/2-total/2;
+
+  lines.forEach((l,i)=>{
+    o.fillText(l,off.width/2,
+      Math.min(off.height-padding, Math.max(padding, sy+i*lh))
+    );
   });
 
-  requestAnimationFrame(draw);
+  const d=o.getImageData(0,0,off.width,off.height).data;
+  const arr=[],step=3;
+
+  for(let y=0;y<off.height;y+=step){
+    for(let x=0;x<off.width;x+=step){
+      if(d[(y*off.width+x)*4+3]>120){
+        arr.push({x:x-off.width/2,y:y-off.height/2,z:0});
+      }
+    }
+  }
+  return arr;
 }
-draw();
 
-/* ================= HANDS ================= */
-const video=document.getElementById("preview");
-const ui=document.getElementById("ui");
+/* ================= HEART 3D ================= */
+function makeHeart(){
+  const arr=[];
+  for(let t=0;t<Math.PI*2;t+=0.04){
+    const x=16*Math.sin(t)**3;
+    const y=13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t);
 
-const hands=new Hands({
-  locateFile:(f)=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/${f}`
-});
+    for(let z=-40; z<=40; z+=8){
+      arr.push({x:x*12,y:-y*12,z:z});
+    }
+  }
+  return arr;
+}
+
+/* ================= TARGETS ================= */
+let TARGETS={};
+
+function buildTargets(){
+  TARGETS={
+    fist: makeText("From someone who is truly sorry"),
+    one: makeText(`Dear Adinda,
+
+I sincerely apologize
+for everything that happened.`),
+    two: makeText(`I never meant to hurt you,
+and I truly regret my mistakes.`),
+    three: makeText(`PMaafin aku ya sayangkuu♥`),
+    four: makeHeart(),
+    five: makeText(`I'm really sorry, Adinda ♥`)
+  };
+}
+
+/* ================= ANIMATE ================= */
+let t=0;
+
+function animate(){
+  t+=0.002;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  const g=ctx.createRadialGradient(
+    canvas.width/2,canvas.height/2,0,
+    canvas.width/2,canvas.height/2,canvas.width
+  );
+  g.addColorStop(0,"#1a0033");
+  g.addColorStop(0.5,"#090018");
+  g.addColorStop(1,"#000");
+  ctx.fillStyle=g;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.translate(canvas.width/2,canvas.height/2);
+
+  /* ==== background galaxy stars ==== */
+  for(let i=0;i<400;i++){
+    const x=(Math.sin(i*12.9898+t*20)*43758.5453)%canvas.width;
+    const y=(Math.cos(i*78.233+t*10)*12345.6789)%canvas.height;
+
+    ctx.beginPath();
+    ctx.arc(x-canvas.width/2,y-canvas.height/2,0.6,0,Math.PI*2);
+    ctx.fillStyle="rgba(160,140,255,0.25)";
+    ctx.fill();
+  }
+
+  const target=TARGETS[currentState];
+
+  particles.forEach((p,i)=>{
+    let tx=base[i].x,ty=base[i].y,tz=base[i].z;
+
+    if(target && i<target.length){
+
+      /* ==== rotasi 3D khusus heart ==== */
+      if(currentState==="four"){
+        const a=t*1.2;
+        const rx=target[i].x*Math.cos(a)-target[i].z*Math.sin(a);
+        const rz=target[i].x*Math.sin(a)+target[i].z*Math.cos(a);
+        tx=rx; tz=rz; ty=target[i].y;
+      }else{
+        tx=target[i].x; ty=target[i].y; tz=0;
+      }
+
+    }else{
+      tx+=Math.sin(t*0.6+p.z)*p.drift*25;
+      ty+=Math.cos(t*0.6+p.z)*p.drift*25;
+      tz+=Math.sin(t*0.3+i)*8;
+    }
+
+    p.x+=(tx-p.x)*0.06;
+    p.y+=(ty-p.y)*0.06;
+    p.z+=(tz-p.z)*0.06;
+
+    const s=650/(650+p.z);
+
+    ctx.beginPath();
+    ctx.arc(p.x*s,p.y*s,1.6*s,0,Math.PI*2);
+
+    if(target){
+      ctx.fillStyle=`rgba(${200+Math.sin(i)*30},${150+Math.cos(i)*30},255,1)`;
+      ctx.shadowColor="rgba(180,160,255,0.8)";
+      ctx.shadowBlur=10;
+    }else{
+      ctx.fillStyle=`rgba(${120+Math.sin(i)*30},80,${200+Math.cos(i)*40},0.55)`;
+      ctx.shadowBlur=0;
+    }
+
+    ctx.fill();
+  });
+
+  ctx.setTransform(1,0,0,1,0,0);
+  requestAnimationFrame(animate);
+}
+
+/* ================= MEDIAPIPE ================= */
+const video=document.getElementById("video");
+
+const hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
 
 hands.setOptions({
-  maxNumHands:2,
+  maxNumHands:1,
   modelComplexity:1,
-  minDetectionConfidence:0.7,
-  minTrackingConfidence:0.7
+  minDetectionConfidence:0.6,
+  minTrackingConfidence:0.6
 });
 
 hands.onResults(res=>{
-  if(!res.multiHandLandmarks || res.multiHandLandmarks.length<2){
-    ui.classList.remove("show");
-    return;
-  }
-
-  const a=res.multiHandLandmarks[0][8];
-  const b=res.multiHandLandmarks[1][8];
-
-  const dist=Math.hypot(a.x-b.x,a.y-b.y);
-
-  if(dist<0.12) ui.classList.add("show");
-  else ui.classList.remove("show");
-});
-
-/* ================= CAMERA ================= */
-const camera=new Camera(video,{
-  onFrame:async()=>{await hands.send({image:video});},
-  width:640,
-  height:480
-});
-camera.start();
-</script>
-
-</body>
-</html>
+  if(!res.multiHandLandmarks || res.multiHandLandmarks.length===0){
+    curre
