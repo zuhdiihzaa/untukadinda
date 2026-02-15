@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>For Adinda</title>
 
 <style>
@@ -11,7 +11,6 @@ html,body{
   padding:0;
   background:#000;
   overflow:hidden;
-  touch-action:none;
   font-family:Georgia,serif;
 }
 canvas{position:fixed;inset:0}
@@ -30,13 +29,12 @@ canvas{position:fixed;inset:0}
   object-fit:cover;
   transform:scaleX(-1);
 }
-
 #hint{
   position:fixed;
   top:10px;left:50%;
   transform:translateX(-50%);
   color:#fff;opacity:.6;
-  font-size:clamp(12px,3vw,15px);
+  font-size:14px;
   z-index:10
 }
 </style>
@@ -58,29 +56,33 @@ const ctx=canvas.getContext("2d");
 function resize(){
   canvas.width=innerWidth;
   canvas.height=innerHeight;
-  buildTargets(); // rebuild text agar tidak offset
+  buildTargets();
 }
 addEventListener("resize",resize);
 
 /* ================= STATE ================= */
 let currentState="idle";
 
-/* ================= PARTICLES ================= */
-const COUNT=3200;
-const particles=[],base=[];
+/* ================= GALAXY BACKGROUND ================= */
+const BG_COUNT=2200;
+const bg=[];
 
-for(let i=0;i<COUNT;i++){
-  const p={
+for(let i=0;i<BG_COUNT;i++){
+  bg.push({
     x:(Math.random()-.5)*innerWidth,
     y:(Math.random()-.5)*innerHeight,
-    z:Math.random()*900,
-    drift:(Math.random()*0.4+0.1)
-  };
-  particles.push(p);
-  base.push({...p});
+    z:Math.random()*900
+  });
 }
 
-/* ================= TEXT MAP ================= */
+/* ================= TEXT PARTICLES ================= */
+const TEXT_COUNT=3200;
+const particles=[];
+for(let i=0;i<TEXT_COUNT;i++){
+  particles.push({x:0,y:0,z:0});
+}
+
+/* ================= MAKE TEXT ================= */
 function makeText(text){
   const off=document.createElement("canvas");
   const o=off.getContext("2d");
@@ -88,8 +90,7 @@ function makeText(text){
   off.width=canvas.width;
   off.height=canvas.height;
 
-  const isPortrait = off.height > off.width;
-  const fs = isPortrait ? off.width*0.065 : off.width*0.045;
+  const fs=(off.height>off.width?off.width*0.07:off.width*0.045);
 
   o.fillStyle="#fff";
   o.textAlign="center";
@@ -97,19 +98,13 @@ function makeText(text){
   o.font=`600 ${fs}px Georgia`;
 
   const lines=text.split("\n");
-  const lh=fs*1.5;
-  const padding=fs*1.2;
-  const total=(lines.length-1)*lh;
-  const sy=off.height/2-total/2;
+  const lh=fs*1.4;
+  const sy=off.height/2-(lines.length-1)*lh/2;
 
-  lines.forEach((l,i)=>{
-    o.fillText(l,off.width/2,
-      Math.min(off.height-padding, Math.max(padding, sy+i*lh))
-    );
-  });
+  lines.forEach((l,i)=>o.fillText(l,off.width/2,sy+i*lh));
 
   const d=o.getImageData(0,0,off.width,off.height).data;
-  const arr=[],step=3;
+  const arr=[],step=2; // lebih rapat → lebih jelas
 
   for(let y=0;y<off.height;y+=step){
     for(let x=0;x<off.width;x+=step){
@@ -121,13 +116,15 @@ function makeText(text){
   return arr;
 }
 
-/* ================= HEART ================= */
-function makeHeart(){
+/* ================= 3D HEART ================= */
+function makeHeart3D(){
   const arr=[];
-  for(let t=0;t<Math.PI*2;t+=0.035){
-    const x=16*Math.sin(t)**3;
-    const y=13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t);
-    arr.push({x:x*13,y:-y*13,z:0});
+  for(let z=-60;z<=60;z+=6){
+    for(let t=0;t<Math.PI*2;t+=0.08){
+      const x=16*Math.sin(t)**3;
+      const y=13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t);
+      arr.push({x:x*12,y:-y*12,z:z});
+    }
   }
   return arr;
 }
@@ -137,15 +134,18 @@ let TARGETS={};
 
 function buildTargets(){
   TARGETS={
-    fist: makeText("From someone who is truly sorry"),
     one: makeText(`Dear Adinda,
 
 I sincerely apologize
 for everything that happened.`),
+
     two: makeText(`I never meant to hurt you,
 and I truly regret my mistakes.`),
-    three: makeText(`Maafin aku ya saayangg ♥y.`),
-    four: makeHeart(),
+
+    three: makeText(`Maafin aku ya sayaangg ♥`),
+
+    four: makeHeart3D(),
+
     five: makeText(`I'm really sorry, Adinda ♥`)
   };
 }
@@ -153,56 +153,69 @@ and I truly regret my mistakes.`),
 /* ================= ANIMATE ================= */
 let t=0;
 
+function drawGalaxy(){
+  bg.forEach(p=>{
+    p.z-=0.3;
+    if(p.z<1) p.z=900;
+
+    const s=650/(650+p.z);
+    const x=p.x*s+canvas.width/2;
+    const y=p.y*s+canvas.height/2;
+
+    ctx.fillStyle=`rgba(120,80,255,0.6)`;
+    ctx.fillRect(x,y,1.2*s,1.2*s);
+  });
+}
+
 function animate(){
-  t+=0.002;
+  t+=0.01;
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  const g=ctx.createRadialGradient(
-    canvas.width/2,canvas.height/2,0,
-    canvas.width/2,canvas.height/2,canvas.width
-  );
-  g.addColorStop(0,"#1a0033");
-  g.addColorStop(0.5,"#090018");
-  g.addColorStop(1,"#000");
-  ctx.fillStyle=g;
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-
-  ctx.translate(canvas.width/2,canvas.height/2);
+  drawGalaxy();
 
   const target=TARGETS[currentState];
+  if(!target) return requestAnimationFrame(animate);
 
-  particles.forEach((p,i)=>{
-    let tx=base[i].x,ty=base[i].y,tz=base[i].z;
+  target.forEach((pt,i)=>{
+    const p=particles[i]||(particles[i]={x:0,y:0,z:0});
 
-    if(target && i<target.length){
-      tx=target[i].x;
-      ty=target[i].y;
-      tz=0;
-    }else{
-      tx+=Math.sin(t*0.6+p.z)*p.drift*25;
-      ty+=Math.cos(t*0.6+p.z)*p.drift*25;
-      tz+=Math.sin(t*0.3+i)*8;
+    // rotasi 3D khusus heart
+    let tx=pt.x, ty=pt.y, tz=pt.z;
+
+    if(currentState==="four"){
+      const ang=t*0.6;
+      const cos=Math.cos(ang);
+      const sin=Math.sin(ang);
+      const nx=tx*cos - tz*sin;
+      const nz=tx*sin + tz*cos;
+      tx=nx; tz=nz;
     }
 
-    p.x+=(tx-p.x)*0.06;
-    p.y+=(ty-p.y)*0.06;
-    p.z+=(tz-p.z)*0.06;
+    p.x+=(tx-p.x)*0.08;
+    p.y+=(ty-p.y)*0.08;
+    p.z+=(tz-p.z)*0.08;
 
     const s=650/(650+p.z);
 
     ctx.beginPath();
-    ctx.arc(p.x*s,p.y*s,1.6*s,0,Math.PI*2);
+    ctx.arc(canvas.width/2+p.x*s,canvas.height/2+p.y*s,2*s,0,Math.PI*2);
 
-    if(target){
-      ctx.fillStyle=`rgba(${180+Math.sin(i)*40},${120+Math.cos(i)*40},255,0.95)`;
-    }else{
-      ctx.fillStyle=`rgba(${120+Math.sin(i)*30},80,${200+Math.cos(i)*40},0.55)`;
-    }
+    // glow lembut agar teks jelas
+    const glow=ctx.createRadialGradient(
+      canvas.width/2+p.x*s,
+      canvas.height/2+p.y*s,
+      0,
+      canvas.width/2+p.x*s,
+      canvas.height/2+p.y*s,
+      6*s
+    );
+    glow.addColorStop(0,"rgba(255,200,255,1)");
+    glow.addColorStop(1,"rgba(120,80,255,0)");
 
+    ctx.fillStyle=glow;
     ctx.fill();
   });
 
-  ctx.setTransform(1,0,0,1,0,0);
   requestAnimationFrame(animate);
 }
 
@@ -213,7 +226,6 @@ const hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/ha
 
 hands.setOptions({
   maxNumHands:1,
-  modelComplexity:1,
   minDetectionConfidence:0.6,
   minTrackingConfidence:0.6
 });
@@ -225,20 +237,13 @@ hands.onResults(res=>{
   }
 
   const lm=res.multiHandLandmarks[0];
-  if(!lm || lm.length<21){
-    currentState="idle";
-    return;
-  }
+  if(!lm || lm.length<21){currentState="idle";return;}
 
   let fingers=0;
+  [8,12,16,20].forEach(t=>{ if(lm[t].y<lm[t-2].y) fingers++; });
+  if(lm[4].x<lm[3].x) fingers++;
 
-  [8,12,16,20].forEach(t=>{
-    if(lm[t] && lm[t-2] && lm[t].y<lm[t-2].y) fingers++;
-  });
-
-  if(lm[4] && lm[3] && lm[4].x<lm[3].x) fingers++;
-
-  currentState=["fist","one","two","three","four","five"][fingers] || "idle";
+  currentState=["idle","one","two","three","four","five"][fingers]||"idle";
 });
 
 const camera=new Camera(video,{
@@ -248,7 +253,6 @@ const camera=new Camera(video,{
 
 /* ================= START ================= */
 resize();
-buildTargets();
 animate();
 camera.start();
 </script>
